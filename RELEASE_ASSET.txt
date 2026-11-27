@@ -1,5 +1,5 @@
-Frex 3.2.0 Windows desktop installer
+Frex 3.3.0 Windows Desktop Installer
 
-Download this asset from the latest GitHub Release, extract the ZIP in File Explorer, and double-click Setup_Frex.vbs.
+Extract the ZIP and run Setup_Frex.vbs. Requires Windows 10/11, Python 3.10+, and WebView2 (the setup checks/installs WebView2).
 
-The bundle includes the Frex desktop app, the batch frame extractor, the setup/uninstall scripts, and the MIT License.
+Includes Video Downloader, Batch Frame Studio, and YouTube Thumbnail Downloader.
