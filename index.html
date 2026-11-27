@@ -149,17 +149,17 @@ async function extractBatch(){
  let plan=[],total=0;
  try{
   for(const file of selectedFiles){
-   const obj=URL.createObjectURL(file),v=document.createElement('video');v.preload='metadata';v.muted=true;v.src=obj;v.load();
+   const obj=URL.createObjectURL(file),v=document.createElement('video');v.preload='auto';v.muted=true;v.src=obj;v.load();
    try{await waitEvent(v,'loadedmetadata','error');if(!Number.isFinite(v.duration)||v.duration<=0)throw Error('Video duration is unavailable.');
     const st=Math.min(start,Math.max(0,v.duration-0.01)),en=end===null?v.duration:Math.min(end,v.duration);
     if(en<=st)throw Error('The selected time range is outside this video.');
-    const count=Math.floor((en-st)*fps)+1;plan.push({file,obj,v,start:st,end:en,count,duration:v.duration});total+=count;
+    await waitEvent(v,'loadeddata','error');const count=Math.floor((en-st)*fps)+1;const folder=String(plan.length+1).padStart(2,'0')+'_'+safeName(file.name);plan.push({file,obj,v,start:st,end:en,count,duration:v.duration,folder});total+=count;
    }catch(err){URL.revokeObjectURL(obj);throw new Error(file.name+': '+err.message)}
   }
   if(total>MAX_FRAMES)throw Error('This batch would create '+total+' frames. The web version is limited to '+MAX_FRAMES+' frames per batch. Lower FPS or shorten the time range.');
   let completed=0;
   for(let fi=0;fi<plan.length;fi++){
-   const item=plan[fi],base=safeName(item.file.name),meta={file:item.file.name,duration:item.duration,fps,start:item.start,end:item.end,frameCount:0,format:$('format').value};fileMetadata.push(meta);
+   const item=plan[fi],base=item.folder,meta={file:item.file.name,folder:item.folder,duration:item.duration,fps,start:item.start,end:item.end,frameCount:0,format:$('format').value};fileMetadata.push(meta);
    const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d',{alpha:false});
    for(let i=0;i<item.count;i++){
     if(cancelRequested)break;
@@ -194,10 +194,10 @@ async function exportZip(){
  if(typeof JSZip==='undefined'){$('extractStatus').textContent='ZIP library did not load. Check your internet connection and reload the page.';return}
  $('exportZip').disabled=true;$('extractStatus').textContent='Building ZIP archive…';
  try{
-  const zip=new JSZip(),byFile={};
-  chosen.forEach(f=>{const folder=zip.folder(f.folder);folder.file('frame_'+String(f.index).padStart(5,'0')+'.'+f.extension,f.blob);byFile[f.file]=(byFile[f.file]||0)+1});
-  fileMetadata.forEach(m=>{const folder=zip.folder(safeName(m.file));folder.file('metadata.json',JSON.stringify({...m,exportedFrames:byFile[m.file]||0},null,2))});
-  const manifest={tool:'Frex Web Studio',createdAt:new Date().toISOString(),selectedFrameCount:chosen.length,files:fileMetadata.map(m=>({...m,exportedFrames:byFile[m.file]||0}))};
+  const zip=new JSZip(),byFolder={};
+  chosen.forEach(f=>{const folder=zip.folder(f.folder);folder.file('frame_'+String(f.index).padStart(5,'0')+'.'+f.extension,f.blob);byFolder[f.folder]=(byFolder[f.folder]||0)+1});
+  fileMetadata.forEach(m=>{const folder=zip.folder(m.folder);folder.file('metadata.json',JSON.stringify({...m,exportedFrames:byFolder[m.folder]||0},null,2))});
+  const manifest={tool:'Frex Web Studio',createdAt:new Date().toISOString(),selectedFrameCount:chosen.length,files:fileMetadata.map(m=>({...m,exportedFrames:byFolder[m.folder]||0}))};
   zip.file('manifest.json',JSON.stringify(manifest,null,2));
   zip.file('manifest.csv','file,duration,fps,start,end,extractedFrames,exportedFrames\n'+fileMetadata.map(m=>[m.file,m.duration,m.fps,m.start,m.end,m.frameCount,byFile[m.file]||0].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n'));
   const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:4}},m=>{$('progressBar').style.width=Math.round(m.percent)+'%';$('progressPct').textContent=Math.round(m.percent)+'%';$('progressText').textContent='Compressing ZIP…'});
