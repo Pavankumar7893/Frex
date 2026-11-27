@@ -1,0 +1,5 @@
+Frex 3.2.0 Windows desktop installer
+
+Download this asset from the latest GitHub Release, extract the ZIP in File Explorer, and double-click Setup_Frex.vbs.
+
+The bundle includes the Frex desktop app, the batch frame extractor, the setup/uninstall scripts, and the MIT License.
