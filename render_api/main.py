@@ -7,6 +7,7 @@ import socket
 import threading
 import time
 import uuid
+import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Literal
@@ -23,7 +24,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-APP_VERSION = "0.2.2"
+APP_VERSION = "0.2.3"
 MAX_DOWNLOAD_BYTES = 500 * 1024 * 1024
 MAX_YT_SOURCE_BYTES = 350 * 1024 * 1024
 MAX_YT_FRAMES = 500
