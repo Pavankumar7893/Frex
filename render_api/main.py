@@ -23,7 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.2.1"
 MAX_DOWNLOAD_BYTES = 500 * 1024 * 1024
 MAX_YT_SOURCE_BYTES = 350 * 1024 * 1024
 MAX_YT_FRAMES = 500
@@ -684,6 +684,7 @@ def run_yt_frame_export(session_id: str, export_id: str, indices: list[int], exp
 
 @app.post("/api/yt-frames/export")
 def start_yt_frame_export(payload: YTFrameExportRequest):
+    global active_youtube_frame_id
     with lock:
         session = yt_frame_sessions.get(payload.id)
         if not session or session.get("status") != "ready":
