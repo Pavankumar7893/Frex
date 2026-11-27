@@ -21,7 +21,7 @@ main{padding:24px 0 65px}.pane{display:none}.pane.active{display:block}.intro{ma
 .toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:17px 0 12px}.count{margin-left:auto;color:var(--muted);font-size:12px}.framegrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.frame{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}.frame.selected{border-color:#8dbb42;box-shadow:0 0 0 1px #8dbb4240}.frame img{display:block;width:100%;aspect-ratio:16/9;object-fit:contain;background:#05080c}.framefoot{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;gap:7px;font-size:11px;color:var(--muted)}.framefoot label{display:flex;align-items:center;gap:6px;cursor:pointer}.framefoot input{accent-color:var(--lime)}
 .pager{display:flex;align-items:center;justify-content:center;gap:12px;margin:16px 0}.pager span{font-size:12px;color:var(--muted)}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}.aboutcard{padding:19px;border-radius:14px;border:1px solid var(--line);background:#ffffff04}.aboutcard h3{margin:0 0 7px;font-size:16px}.aboutcard p{color:var(--muted);font-size:13px;margin:0}.footer{border-top:1px solid #ffffff12;padding:22px 0 30px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
-.dl-meta{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;margin-top:12px}.dl-meta img{width:116px;aspect-ratio:16/9;object-fit:cover;border-radius:9px;background:#070a0f}.dl-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.hidden{display:none!important}
+.yt-frame-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}.yt-frame-card.selected{border-color:#8dbb42;box-shadow:0 0 0 1px #8dbb4240}.yt-frame-card img{display:block;width:100%;aspect-ratio:16/9;object-fit:contain;background:#05080c}.yt-frame-foot{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;gap:7px;font-size:11px;color:var(--muted)}.yt-frame-foot label{display:flex;align-items:center;gap:6px;cursor:pointer}.yt-frame-foot input{accent-color:var(--lime)}.yt-frame-summary{display:flex;align-items:center;gap:12px}.yt-frame-summary img{width:110px;aspect-ratio:16/9;object-fit:cover;border-radius:8px}.dl-meta{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;margin-top:12px}.dl-meta img{width:116px;aspect-ratio:16/9;object-fit:cover;border-radius:9px;background:#070a0f}.dl-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.hidden{display:none!important}
 @media(max-width:850px){.framegrid{grid-template-columns:repeat(3,minmax(0,1fr))}.controls{grid-template-columns:repeat(2,1fr)}.heroMark{display:none}}
 @media(max-width:600px){.wrap{width:min(100% - 24px,1180px)}.hero{padding-top:32px}.thumbgrid{grid-template-columns:1fr}.thumb{display:grid;grid-template-columns:1.1fr .9fr}.thumb img{height:100%;aspect-ratio:auto}.framegrid{grid-template-columns:repeat(2,minmax(0,1fr))}.controls{grid-template-columns:1fr 1fr}.row{align-items:stretch}.navright .navlink{display:none}.panel{padding:15px}}
 </style>
@@ -56,7 +56,28 @@ main{padding:24px 0 65px}.pane{display:none}.pane.active{display:block}.intro{ma
 <div class="notice"><strong>Heads up:</strong> Some videos do not have every thumbnail size. Frex checks each image and marks unavailable variants. The original image is fetched directly from YouTube's image host.</div>
 </section>
 <section class="pane" id="pane-frames">
-<div class="intro"><h2>Frame extraction studio</h2><p>Choose one or more video files from your device. Set the sampling rate and export selected frames as an organized ZIP.</p></div>
+<div class="intro"><h2>Frame extraction studio</h2><p>Extract directly from a YouTube URL using the Render backend, or process video files locally in your browser.</p></div>
+<div class="panel" id="ytFramePanel">
+<div class="eyebrow">YouTube URL extractor · cloud FFmpeg</div>
+<div class="row" style="margin-top:10px"><div class="grow"><label class="label" for="ytFrameUrl">YouTube video URL</label><input type="text" id="ytFrameUrl" placeholder="https://www.youtube.com/watch?v=..."></div><button class="btn" id="ytFrameStart">Generate preview</button></div>
+<div class="controls" style="margin-top:15px">
+<div><label class="label" for="ytFrameFps">Sampling rate (0.1–5 FPS)</label><input type="number" id="ytFrameFps" min="0.1" max="5" step="0.1" value="1"></div>
+<div><label class="label" for="ytFrameFormat">Export format</label><select id="ytFrameFormat"><option value="jpg">JPG · high quality</option><option value="png">PNG · lossless</option></select></div>
+<div><label class="label" for="ytFrameStart">Start (seconds)</label><input type="number" id="ytFrameStart" min="0" step="0.1" placeholder="0"></div>
+<div><label class="label" for="ytFrameEnd">End (seconds)</label><input type="number" id="ytFrameEnd" min="0" step="0.1" placeholder="Video end"></div>
+</div>
+<div class="row" style="margin-top:14px;flex-wrap:wrap"><button class="btn danger" id="ytFrameCancel" disabled>Cancel</button><span class="count" id="ytFrameStatus">Connects to the Render frame extractor.</span></div>
+<div id="ytFrameProgress" class="hidden"><div class="progresswrap"><div class="progressbar" id="ytFrameProgressBar"></div></div><div class="progressmeta"><span id="ytFrameProgressText">Preparing…</span><span id="ytFrameProgressPct">0%</span></div></div>
+<div id="ytFrameSummary" class="notice hidden"></div>
+<div id="ytFrameResults" class="hidden">
+<div class="toolbar"><button class="btn secondary" id="ytFrameSelectAll">Select all</button><button class="btn secondary" id="ytFrameSelectNone">Select none</button><button class="btn secondary" id="ytFrameInvert">Invert selection</button><button class="btn" id="ytFrameExportSelected">Export selected ZIP</button><button class="btn secondary" id="ytFrameExportAll">Export all ZIP</button><span class="count" id="ytFrameCount"></span></div>
+<div class="framegrid" id="ytFrameGrid"></div>
+<div class="pager"><button class="btn secondary" id="ytFramePrev">← Previous</button><span id="ytFramePageLabel">Page 1</span><button class="btn secondary" id="ytFrameNext">Next →</button></div>
+<div class="notice hidden" id="ytFrameExportNotice"><span id="ytFrameExportText">Preparing ZIP…</span> <div class="progresswrap"><div class="progressbar" id="ytFrameExportBar"></div></div><a id="ytFrameZip" class="btn hidden" href="#" rel="noopener">Download frame ZIP</a></div>
+</div>
+<div class="notice"><strong>Free cloud limits:</strong> YouTube URL extraction runs on Render, not your PC. Maximum 5 FPS, 500 preview frames, 350 MB source video and 300 exported frames per ZIP. Jobs are temporary and may be lost when the free service sleeps or restarts. Only public videos you are authorized to access are supported; no cookies or private-video access.</div>
+</div>
+<div class="intro" style="margin-top:28px"><h2>Local video files</h2><p>These files are processed in your browser and are not uploaded to Render.</p></div>
 <div class="panel">
 <div class="filebox"><div class="grow"><label class="label" for="videoFiles">Video files (up to 25)</label><input class="fileinput" id="videoFiles" type="file" accept="video/*,.mp4,.m4v,.mov,.webm,.mkv,.avi" multiple></div><button class="btn secondary" id="clearFiles" type="button">Clear files</button></div><div class="filelist" id="fileList">No video files selected.</div>
 <div class="controls" style="margin-top:17px">
@@ -165,6 +186,161 @@ $('startCloud').addEventListener('click',async()=>{
  finally{$('startCloud').disabled=false;cloudPolling=false;}
 });
 checkApi();
+
+let ytFrameSession = null;
+let ytFrameSelected = new Set();
+let ytFramePage = 0;
+let ytFramePollTimer = null;
+let ytFrameBusy = false;
+let ytFrameRenderedId = null;
+let ytFrameRequestBusy = false;
+const YT_FRAME_PAGE_SIZE = 72;
+function ytFrameSetProgress(value, detail) {
+ $('ytFrameProgress').classList.remove('hidden');
+ const pct=Math.max(0,Math.min(100,Number(value)||0));
+ $('ytFrameProgressBar').style.width=pct+'%';
+ $('ytFrameProgressPct').textContent=Math.round(pct)+'%';
+ $('ytFrameProgressText').textContent=detail||'Working…';
+}
+function ytFrameSetStatus(message, isError=false) {
+ $('ytFrameStatus').textContent=message;
+ $('ytFrameStatus').style.color=isError?'var(--red)':'var(--muted)';
+}
+function ytFrameSetButtons() {
+ const total=ytFrameSelected.size;
+ const frameCount=Number(ytFrameSession?.frame_count||0);
+ const busy=ytFrameBusy||ytFrameRequestBusy;
+ $('ytFrameCount').textContent=frameCount?frameCount+' frames · '+total+' selected':'';
+ $('ytFrameSelectAll').disabled=!frameCount||busy||total===frameCount;
+ $('ytFrameSelectNone').disabled=!total||busy;
+ $('ytFrameInvert').disabled=!frameCount||busy;
+ $('ytFrameExportSelected').disabled=!total||busy;
+ $('ytFrameExportAll').disabled=!frameCount||busy||frameCount>300;
+ $('ytFrameStart').disabled=busy;
+ $('ytFrameCancel').disabled=!busy||!ytFrameSession;
+}
+function ytFrameStopPolling() {
+ if(ytFramePollTimer){clearInterval(ytFramePollTimer);ytFramePollTimer=null}
+}
+function ytFrameStartPolling() {
+ if(!ytFramePollTimer) ytFramePollTimer=setInterval(ytFramePoll,1800);
+}
+async function ytFrameStartJob() {
+ if(ytFrameBusy||ytFrameRequestBusy)return;
+ const url=$('ytFrameUrl').value.trim(),fps=Number($('ytFrameFps').value);
+ let parsed;try{parsed=new URL(url)}catch{return ytFrameSetStatus('Paste a valid YouTube URL.',true)}
+ if(!/^(www\.)?(youtube\.com|youtu\.be|m\.youtube\.com)$/i.test(parsed.hostname))return ytFrameSetStatus('This extractor currently accepts YouTube URLs only.',true);
+ if(!Number.isFinite(fps)||fps<0.1||fps>5)return ytFrameSetStatus('Render free-tier FPS must be between 0.1 and 5.',true);
+ const start=$('ytFrameStart').value.trim()===''?0:Number($('ytFrameStart').value);
+ const end=$('ytFrameEnd').value.trim()===''?null:Number($('ytFrameEnd').value);
+ if(!Number.isFinite(start)||start<0||(end!==null&&(!Number.isFinite(end)||end<=start)))return ytFrameSetStatus('Check the start and end seconds.',true);
+ ytFrameRequestBusy=true;ytFrameSession=null;ytFrameSelected.clear();ytFramePage=0;ytFrameRenderedId=null;
+ ytFrameStopPolling();$('ytFrameResults').classList.add('hidden');$('ytFrameSummary').classList.add('hidden');
+ $('ytFrameGrid').innerHTML='';$('ytFrameZip').classList.add('hidden');$('ytFrameExportNotice').classList.add('hidden');
+ ytFrameSetProgress(0,'Contacting Render…');ytFrameSetStatus('Starting YouTube frame extraction…');ytFrameSetButtons();
+ try {
+  const data=await apiCall('/api/yt-frames/start',{method:'POST',body:JSON.stringify({url,fps,start,end})});
+  ytFrameSession=data;ytFrameBusy=true;ytFrameSetProgress(data.progress||0,data.detail||'Queued…');
+  ytFrameSetStatus('Frame job queued. Render may take a moment to wake.');
+  ytFrameStartPolling();await ytFramePoll();
+ } catch(e) {
+  ytFrameBusy=false;ytFrameSetStatus(e.message,true);
+ } finally {ytFrameRequestBusy=false;ytFrameSetButtons()}
+}
+async function ytFramePoll() {
+ if(!ytFrameSession)return;
+ try {
+  const data=await apiCall('/api/yt-frames/state?id='+encodeURIComponent(ytFrameSession.id));
+  ytFrameSession=data;
+  ytFrameSetProgress(data.progress||0,data.detail||data.status);
+  const ex=data.export||null;
+  ytFrameBusy=['queued','downloading','previewing'].includes(data.status)||ex?.status==='exporting';
+  if(data.status==='ready'&&ytFrameRenderedId!==data.id) {
+   ytFrameRenderedId=data.id;
+   $('ytFrameSummary').innerHTML='<div class="yt-frame-summary">'+(data.thumbnail?'<img src="'+esc(data.thumbnail)+'" alt="Video thumbnail">':'')+'<div><strong>'+esc(data.title)+'</strong><div class="dim">'+esc(data.uploader)+' · '+Number(data.duration).toFixed(1)+'s · '+(data.width&&data.height?data.width+'×'+data.height:'source resolution')+' · '+data.frame_count+' frames at '+data.fps+' FPS</div></div></div>';
+   $('ytFrameSummary').classList.remove('hidden');$('ytFrameResults').classList.remove('hidden');
+   await ytFrameLoadPage(0);
+   ytFrameSetStatus('Preview ready. Select frames and export a ZIP.');
+  }
+  if(data.status==='failed'||data.status==='cancelled') {
+   ytFrameSetStatus(data.error||data.detail||'Frame extraction failed.',data.status==='failed');
+   $('ytFrameProgressText').textContent=data.detail||data.status;
+   ytFrameBusy=false;ytFrameStopPolling();
+  }
+  if(ex) {
+   $('ytFrameExportNotice').classList.remove('hidden');
+   $('ytFrameExportText').textContent=ex.error||ex.detail||'Preparing ZIP…';
+   $('ytFrameExportBar').style.width=Math.max(0,Math.min(100,Number(ex.progress)||0))+'%';
+   if(ex.status==='complete') {
+    $('ytFrameZip').href=getApiBase()+'/api/yt-frames/download?id='+encodeURIComponent(data.id);
+    $('ytFrameZip').classList.remove('hidden');
+    ytFrameSetStatus('ZIP ready: '+ex.filename+'. Download it before the temporary job expires.');
+    ytFrameBusy=false;ytFrameStopPolling();
+   } else if(ex.status==='failed'||ex.status==='cancelled') {
+    ytFrameSetStatus(ex.error||ex.detail||'ZIP export failed.',true);
+    ytFrameBusy=false;ytFrameStopPolling();
+   }
+  }
+  if(!ytFrameBusy)ytFrameStopPolling();else ytFrameStartPolling();
+  ytFrameSetButtons();
+ } catch(e) {
+  ytFrameSetStatus(e.message,true);
+  // Keep polling briefly for transient Render wake/restart responses.
+ }
+}
+async function ytFrameLoadPage(offset) {
+ if(!ytFrameSession)return;
+ try {
+  const q=new URLSearchParams({id:ytFrameSession.id,offset:String(offset),limit:String(YT_FRAME_PAGE_SIZE)});
+  const data=await apiCall('/api/yt-frames/page?'+q.toString());
+  ytFramePage=data.offset;
+  $('ytFrameGrid').innerHTML='';
+  for(const frame of data.frames) {
+   const selected=ytFrameSelected.has(frame.index);
+   const card=document.createElement('article');card.className='yt-frame-card'+(selected?' selected':'');
+   const img=document.createElement('img');img.loading='lazy';img.src=getApiBase()+frame.image;img.alt='YouTube frame at '+frame.timestamp_text;
+   const foot=document.createElement('div');foot.className='yt-frame-foot';
+   const label=document.createElement('label');const check=document.createElement('input');check.type='checkbox';check.checked=selected;
+   const title=document.createElement('span');title.textContent='Frame '+String(frame.index+1).padStart(4,'0');label.append(check,title);
+   const stamp=document.createElement('span');stamp.textContent=frame.timestamp_text;foot.append(label,stamp);
+   check.addEventListener('change',()=>{if(check.checked)ytFrameSelected.add(frame.index);else ytFrameSelected.delete(frame.index);card.classList.toggle('selected',check.checked);ytFrameSetButtons()});
+   card.append(img,foot);$('ytFrameGrid').append(card);
+  }
+  const current=Math.floor(data.offset/YT_FRAME_PAGE_SIZE)+1,pages=Math.max(1,Math.ceil(data.total/YT_FRAME_PAGE_SIZE));
+  $('ytFramePageLabel').textContent='Page '+current+' of '+pages;
+  $('ytFramePrev').disabled=current<=1;$('ytFrameNext').disabled=!data.has_more;
+  ytFrameSetButtons();
+ } catch(e){ytFrameSetStatus(e.message,true)}
+}
+async function ytFrameExport(allFrames) {
+ if(!ytFrameSession||ytFrameBusy||ytFrameRequestBusy)return;
+ const indices=allFrames?[]:[...ytFrameSelected].sort((a,b)=>a-b);
+ if(!allFrames&&!indices.length)return ytFrameSetStatus('Select at least one frame to export.',true);
+ if(allFrames&&Number(ytFrameSession.frame_count)>300)return ytFrameSetStatus('Export all is limited to 300 frames on the free service. Select up to 300 individual frames instead.',true);
+ ytFrameRequestBusy=true;ytFrameBusy=true;ytFrameSetButtons();$('ytFrameExportNotice').classList.remove('hidden');$('ytFrameZip').classList.add('hidden');$('ytFrameExportText').textContent='Starting full-resolution ZIP export…';
+ try {
+  await apiCall('/api/yt-frames/export',{method:'POST',body:JSON.stringify({id:ytFrameSession.id,indices,all_frames:allFrames,format:$('ytFrameFormat').value})});
+  ytFrameSetStatus('Export started. Keep this page open until the ZIP is ready.');
+  ytFrameStartPolling();
+ } catch(e) {ytFrameBusy=false;ytFrameSetStatus(e.message,true)}
+ finally {ytFrameRequestBusy=false;ytFrameSetButtons()}
+}
+$('ytFrameStart').addEventListener('click',ytFrameStartJob);
+$('ytFrameUrl').addEventListener('keydown',e=>{if(e.key==='Enter')ytFrameStartJob()});
+$('ytFrameCancel').addEventListener('click',async()=>{
+ if(!ytFrameSession)return;
+ try{await apiCall('/api/yt-frames/cancel?id='+encodeURIComponent(ytFrameSession.id),{method:'POST',body:'{}'});ytFrameBusy=false;ytFrameStopPolling();ytFrameSetStatus('Cancellation requested.');}
+ catch(e){ytFrameSetStatus(e.message,true)}
+ ytFrameSetButtons();
+});
+$('ytFrameSelectAll').addEventListener('click',()=>{for(let i=0;i<Number(ytFrameSession?.frame_count||0);i++)ytFrameSelected.add(i);ytFrameLoadPage(ytFramePage)});
+$('ytFrameSelectNone').addEventListener('click',()=>{ytFrameSelected.clear();ytFrameLoadPage(ytFramePage)});
+$('ytFrameInvert').addEventListener('click',()=>{for(let i=0;i<Number(ytFrameSession?.frame_count||0);i++){if(ytFrameSelected.has(i))ytFrameSelected.delete(i);else ytFrameSelected.add(i)}ytFrameLoadPage(ytFramePage)});
+$('ytFramePrev').addEventListener('click',()=>ytFrameLoadPage(Math.max(0,ytFramePage-YT_FRAME_PAGE_SIZE)));
+$('ytFrameNext').addEventListener('click',()=>ytFrameLoadPage(ytFramePage+YT_FRAME_PAGE_SIZE));
+$('ytFrameExportSelected').addEventListener('click',()=>ytFrameExport(false));
+$('ytFrameExportAll').addEventListener('click',()=>ytFrameExport(true));
+
 function safeName(s){return (s||'video').replace(/\.[^.]+$/,'').replace(/[^a-z0-9_-]+/gi,'_').replace(/^_+|_+$/g,'').slice(0,70)||'video'}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function getVideoId(raw){
