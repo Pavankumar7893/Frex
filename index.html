@@ -21,7 +21,7 @@ main{padding:24px 0 65px}.pane{display:none}.pane.active{display:block}.intro{ma
 .toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:17px 0 12px}.count{margin-left:auto;color:var(--muted);font-size:12px}.framegrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.frame{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}.frame.selected{border-color:#8dbb42;box-shadow:0 0 0 1px #8dbb4240}.frame img{display:block;width:100%;aspect-ratio:16/9;object-fit:contain;background:#05080c}.framefoot{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;gap:7px;font-size:11px;color:var(--muted)}.framefoot label{display:flex;align-items:center;gap:6px;cursor:pointer}.framefoot input{accent-color:var(--lime)}
 .pager{display:flex;align-items:center;justify-content:center;gap:12px;margin:16px 0}.pager span{font-size:12px;color:var(--muted)}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}.aboutcard{padding:19px;border-radius:14px;border:1px solid var(--line);background:#ffffff04}.aboutcard h3{margin:0 0 7px;font-size:16px}.aboutcard p{color:var(--muted);font-size:13px;margin:0}.footer{border-top:1px solid #ffffff12;padding:22px 0 30px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
-.hidden{display:none!important}
+.dl-meta{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;margin-top:12px}.dl-meta img{width:116px;aspect-ratio:16/9;object-fit:cover;border-radius:9px;background:#070a0f}.dl-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.hidden{display:none!important}
 @media(max-width:850px){.framegrid{grid-template-columns:repeat(3,minmax(0,1fr))}.controls{grid-template-columns:repeat(2,1fr)}.heroMark{display:none}}
 @media(max-width:600px){.wrap{width:min(100% - 24px,1180px)}.hero{padding-top:32px}.thumbgrid{grid-template-columns:1fr}.thumb{display:grid;grid-template-columns:1.1fr .9fr}.thumb img{height:100%;aspect-ratio:auto}.framegrid{grid-template-columns:repeat(2,minmax(0,1fr))}.controls{grid-template-columns:1fr 1fr}.row{align-items:stretch}.navright .navlink{display:none}.panel{padding:15px}}
 </style>
@@ -31,9 +31,25 @@ main{padding:24px 0 65px}.pane{display:none}.pane.active{display:block}.intro{ma
 <header><div class="wrap nav"><a class="brand" href="#">frex<span>.</span></a><div class="navright"><span class="badge">WEB STUDIO</span><a class="navlink" href="https://github.com/Pavankumar7893/Frex" target="_blank" rel="noopener">Source ↗</a><a class="navlink" href="https://github.com/Pavankumar7893/Frex/releases" target="_blank" rel="noopener">Desktop app ↗</a></div></div></header>
 <div class="wrap">
 <section class="hero"><div><div class="eyebrow">Your browser. Your files. Your workflow.</div><h1>Frex Web Studio</h1><p>Grab YouTube thumbnails, extract frames from videos on your device, and package batch exports. Local video files stay in your browser — they are not uploaded to a Frex server.</p></div><div class="heroMark">FX</div></section>
-<div class="tabs" role="tablist"><button class="tab active" data-tab="thumbs" role="tab" aria-selected="true">▧ &nbsp; Thumbnail downloader</button><button class="tab" data-tab="frames" role="tab" aria-selected="false">▦ &nbsp; Frame studio</button><button class="tab" data-tab="about" role="tab" aria-selected="false">ⓘ &nbsp; About &amp; limits</button></div>
+<div class="tabs" role="tablist"><button class="tab active" data-tab="downloader" role="tab" aria-selected="true">↓ &nbsp; Video downloader</button><button class="tab" data-tab="thumbs" role="tab" aria-selected="false">▧ &nbsp; Thumbnail downloader</button><button class="tab" data-tab="frames" role="tab" aria-selected="false">▦ &nbsp; Frame studio</button><button class="tab" data-tab="about" role="tab" aria-selected="false">ⓘ &nbsp; About &amp; limits</button></div>
 <main>
-<section class="pane active" id="pane-thumbs">
+<section class="pane active" id="pane-downloader">
+<div class="intro"><h2>Video downloader</h2><p>Download a supported public video URL through Frex's temporary cloud service.</p></div>
+<div class="panel">
+<div class="row"><div class="grow"><label class="label" for="cloudUrl">Video URL</label><input type="text" id="cloudUrl" placeholder="Paste a video link from a supported site"></div><button class="btn secondary" id="inspectCloud">Inspect</button></div>
+<div class="controls" style="margin-top:14px;grid-template-columns:1fr 1fr">
+<div><label class="label" for="cloudQuality">Quality</label><select id="cloudQuality"><option value="best">Best available</option><option value="1080">Up to 1080p</option><option value="720" selected>Up to 720p</option><option value="480">Up to 480p</option><option value="audio">Audio only (original format)</option></select></div>
+<div><label class="label" for="apiBase">Render API address</label><input type="text" id="apiBase" placeholder="https://your-service.onrender.com"></div>
+</div>
+<div class="row" style="margin-top:14px;flex-wrap:wrap"><button class="btn secondary" id="saveApi">Save API &amp; test connection</button><button class="btn" id="startCloud">Download video</button><span class="count" id="apiState">Checking service…</span></div>
+<div id="cloudInfo" class="notice hidden"></div>
+<div id="cloudProgress" class="hidden"><div class="progresswrap"><div class="progressbar" id="cloudProgressBar"></div></div><div class="progressmeta"><span id="cloudProgressText">Waiting…</span><span id="cloudProgressPct">0%</span></div></div>
+<div id="cloudStatus" class="hint" role="status"></div>
+<div id="cloudFile" class="hidden" style="margin-top:14px"><a class="btn" id="cloudDownloadLink" href="#" rel="noopener">Download completed file</a></div>
+</div>
+<div class="notice"><strong>Free-tier behaviour:</strong> The backend runs on Render, not on your PC. It may take about a minute to wake after inactivity. Jobs and files are temporary and may disappear if Render restarts or sleeps. Demo limits: one active download, up to 500 MB per file, five new downloads per IP per hour. Do not use it for private or restricted content.</div>
+</section>
+<section class="pane" id="pane-thumbs">
 <div class="intro"><h2>YouTube thumbnail downloader</h2><p>Paste a YouTube video link to preview the available thumbnail sizes.</p></div>
 <div class="panel"><div class="row"><div class="grow"><label class="label" for="yturl">YouTube video URL</label><input type="text" id="yturl" placeholder="https://www.youtube.com/watch?v=..." autocomplete="url"></div><button class="btn" id="getThumbs">Get thumbnails</button></div><div class="hint">Supports youtube.com, youtu.be, Shorts, embed and live links.</div><div id="thumbError" class="hint" role="status"></div></div>
 <div id="thumbResults" class="hidden"><div class="thumbgrid" id="thumbGrid"></div></div>
@@ -85,6 +101,70 @@ tabs.forEach(btn => btn.addEventListener('click', () => {
   document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
   $('pane-'+btn.dataset.tab).classList.add('active');
 }));
+
+// Render API integration. Downloads execute on the cloud worker, not in this browser.
+const DEFAULT_API = 'https://frex-web-api.onrender.com';
+try {$('apiBase').value = localStorage.getItem('frexApiBase') || DEFAULT_API;} catch {$('apiBase').value = DEFAULT_API;}
+function getApiBase(){
+ const value=$('apiBase').value.trim().replace(/\\/+$/,'');
+ if(!/^https?:\\/\\//i.test(value)) throw new Error('Enter the full API address, including https://');
+ return value;
+}
+async function apiCall(path,options={}){
+ const base=getApiBase();
+ let response;
+ try {response=await fetch(base+path,{...options,headers:{'Content-Type':'application/json',...(options.headers||{})}});}
+ catch {throw new Error('Cannot reach the Render API. It may still be waking up, or the service URL is not configured.');}
+ const data=await response.json().catch(()=>({detail:'The API returned an unreadable response.'}));
+ if(!response.ok) throw new Error(data.detail||data.error||('API error '+response.status));
+ return data;
+}
+async function checkApi(){
+ $('apiState').textContent='Connecting…';
+ try {const data=await apiCall('/health');$('apiState').textContent=data.ok?'API online · '+data.version:'API unavailable';$('apiState').style.color=data.ok?'var(--cyan)':'var(--red)';}
+ catch(e){$('apiState').textContent='API offline';$('apiState').style.color='var(--red)';}
+}
+$('saveApi').addEventListener('click',async()=>{
+ try {const base=getApiBase();try{localStorage.setItem('frexApiBase',base)}catch{};await checkApi();if($('apiState').textContent==='API offline')$('cloudStatus').textContent='Could not connect to '+base+'. Check that the Render service has deployed and its URL is correct.';else $('cloudStatus').textContent='API address saved.';}
+ catch(e){$('cloudStatus').textContent=e.message}
+});
+$('apiBase').addEventListener('keydown',e=>{if(e.key==='Enter')$('saveApi').click()});
+$('inspectCloud').addEventListener('click',async()=>{
+ $('cloudInfo').classList.add('hidden');$('cloudStatus').textContent='Inspecting source…';$('inspectCloud').disabled=true;
+ try{
+  const data=await apiCall('/api/info',{method:'POST',body:JSON.stringify({url:$('cloudUrl').value.trim()})});
+  $('cloudInfo').innerHTML='<div class="dl-meta">'+(data.thumbnail?'<img src="'+esc(data.thumbnail)+'" alt="Video thumbnail">':'<div></div>')+'<div><strong>'+esc(data.title)+'</strong><div class="dim">'+esc(data.uploader||'')+(data.duration?' · '+Math.round(data.duration)+' seconds':'')+'</div><div class="dim">Source: '+esc(data.extractor||'Supported source')+'</div></div></div>';
+  $('cloudInfo').classList.remove('hidden');$('cloudStatus').textContent='Source detected. Choose a quality and start the download.';
+ }catch(e){$('cloudStatus').textContent=e.message}
+ finally{$('inspectCloud').disabled=false}
+});
+let cloudPolling=false;
+$('startCloud').addEventListener('click',async()=>{
+ if(cloudPolling)return;
+ $('cloudFile').classList.add('hidden');$('cloudProgress').classList.remove('hidden');$('cloudProgressBar').style.width='0%';$('cloudProgressPct').textContent='0%';$('cloudProgressText').textContent='Starting…';$('cloudStatus').textContent='Submitting download job…';$('startCloud').disabled=true;cloudPolling=true;
+ try{
+  const created=await apiCall('/api/download',{method:'POST',body:JSON.stringify({url:$('cloudUrl').value.trim(),quality:$('cloudQuality').value})});
+  $('cloudStatus').textContent='Job accepted. The Render worker may need to wake up.';
+  for(let i=0;i<900;i++){
+   await new Promise(resolve=>setTimeout(resolve,2500));
+   let job;
+   try{job=await apiCall('/api/jobs/'+encodeURIComponent(created.id));}
+   catch(e){if(i<20){$('cloudProgressText').textContent='Reconnecting to Render…';continue;}throw e;}
+   const pct=job.progress==null?0:Math.max(0,Math.min(100,job.progress));
+   $('cloudProgressBar').style.width=pct+'%';$('cloudProgressPct').textContent=pct.toFixed(0)+'%';$('cloudProgressText').textContent=job.detail||job.status;
+   if(job.status==='completed'){
+    $('cloudDownloadLink').href=getApiBase()+job.download_url;$('cloudDownloadLink').download=job.filename||'frex-download';$('cloudFile').classList.remove('hidden');
+    $('cloudStatus').textContent='Ready: '+(job.filename||'download')+' · '+formatBytes(job.size_bytes||0)+'. The temporary file may expire or disappear if Render restarts.';
+    break;
+   }
+   if(job.status==='failed')throw new Error(job.error||job.detail||'Download failed.');
+   if(job.status==='queued'&&i>30)throw new Error('The job is taking too long to start. Please retry.');
+  }
+  if($('cloudFile').classList.contains('hidden')&&!$('cloudStatus').textContent.startsWith('Ready:')) throw new Error('The download took too long. Free demo jobs are time-limited.');
+ }catch(e){$('cloudStatus').textContent=e.message;}
+ finally{$('startCloud').disabled=false;cloudPolling=false;}
+});
+checkApi();
 function safeName(s){return (s||'video').replace(/\.[^.]+$/,'').replace(/[^a-z0-9_-]+/gi,'_').replace(/^_+|_+$/g,'').slice(0,70)||'video'}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function getVideoId(raw){
