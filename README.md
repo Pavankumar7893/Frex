@@ -20,6 +20,18 @@
 - Structured batch ZIP: numbered per-video folders, full-resolution frames, per-video `metadata.json`, plus batch `manifest.json` and `manifest.csv`; aggregate cap of 50,000 frames per batch.
 - Native Windows desktop window using `pywebview` and Microsoft Edge WebView2.
 
+
+## Frex Web Studio (GitHub Pages + Render)
+
+The public web interface is hosted by GitHub Pages. It now has:
+- Browser-local frame extraction for video files selected from the user's device. The files are processed in the browser and are not uploaded to Frex.
+- YouTube thumbnail preview and download.
+- A cloud video-download tab that calls the optional Render API in `render_api/`.
+
+The Render API is **experimental and is not deployed yet**. To deploy it, sign in to Render, connect the GitHub repository, create a Blueprint from this repository's `render.yaml`, and keep the web service on the **Free** plan. The API is designed for temporary public-media downloads; it does not support account cookies, DRM, private videos, permanent hosting, or persistent user files.
+
+Render Free is suitable for a hobby/demo backend, not reliable production. Free web services have limited CPU/RAM, sleep after 15 minutes without traffic, and use an ephemeral filesystem. Render may restart them at any time, so in-progress jobs and temporary output can be lost. The Hobby workspace currently includes 5 GB monthly outbound bandwidth; exceeding it can suspend free services if no payment method is attached, or incur overage charges if a payment method is attached. Check Render's current usage and pricing before using large downloads.
+
 ## Install (no terminal required)
 
 1. Download `Frex_Windows_Desktop_Installer.zip` from the latest GitHub Release.
