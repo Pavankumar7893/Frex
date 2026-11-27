@@ -134,10 +134,14 @@ function getApiBase(){
 async function apiCall(path,options={}){
  const base=getApiBase();
  let response;
- try {response=await fetch(base+path,{...options,headers:{'Content-Type':'application/json',...(options.headers||{})}});}
- catch {throw new Error('Cannot reach the Render API. It may still be waking up, or the service URL is not configured.');}
- const data=await response.json().catch(()=>({detail:'The API returned an unreadable response.'}));
- if(!response.ok) throw new Error(data.detail||data.error||('API error '+response.status));
+ try {
+  response=await fetch(base+path,{...options,headers:{'Content-Type':'application/json',...(options.headers||{})}});
+ } catch(error) {
+  throw new Error('Network/CORS connection failed: '+(error?.message||'Render did not respond. Check the API URL and retry after the service wakes.'));
+ }
+ const raw=await response.text();
+ let data={};try{data=raw?JSON.parse(raw):{}}catch{data={detail:raw.slice(0,500)||'The API returned an empty response.'}}
+ if(!response.ok) throw new Error(data.detail||data.error||('HTTP '+response.status+' from Render'));
  return data;
 }
 async function checkApi(){
