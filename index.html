@@ -106,8 +106,8 @@ tabs.forEach(btn => btn.addEventListener('click', () => {
 const DEFAULT_API = 'https://frex-web-api.onrender.com';
 try {$('apiBase').value = localStorage.getItem('frexApiBase') || DEFAULT_API;} catch {$('apiBase').value = DEFAULT_API;}
 function getApiBase(){
- const value=$('apiBase').value.trim().replace(/\\/+$/,'');
- if(!/^https?:\\/\\//i.test(value)) throw new Error('Enter the full API address, including https://');
+ const value=$('apiBase').value.trim().replace(/\/+$/,'');
+ if(!/^https?:\/\//i.test(value)) throw new Error('Enter the full API address, including https://');
  return value;
 }
 async function apiCall(path,options={}){
