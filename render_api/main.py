@@ -13,6 +13,11 @@ from typing import Literal
 from urllib.parse import urlparse
 
 import yt_dlp
+try:
+    import imageio_ffmpeg
+    FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
+except Exception:
+    FFMPEG_PATH = None
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -155,7 +160,7 @@ def root():
 
 @app.get("/health")
 def health():
-    return {"ok": True, "service": "frex-api", "version": APP_VERSION, "active_job": active_job_id is not None}
+    return {"ok": True, "service": "frex-api", "version": APP_VERSION, "active_job": active_job_id is not None, "ffmpeg": bool(FFMPEG_PATH)}
 
 
 @app.post("/api/info")
@@ -199,11 +204,15 @@ def run_download(job_id: str, url: str, quality: str) -> None:
 
     if quality == "audio":
         format_selector = "bestaudio[ext=m4a]/bestaudio/best"
-    elif quality == "best":
-        format_selector = "best"
     else:
-        max_height = int(quality)
-        format_selector = f"best[height<={max_height}]/best"
+        height_limit = {"1080": 1080, "720": 720, "480": 480}.get(quality)
+        if quality == "best":
+            format_selector = "bestvideo+bestaudio/best" if FFMPEG_PATH else "best"
+        elif FFMPEG_PATH:
+            format_selector = f"bestvideo[height<={height_limit}]+bestaudio/best[height<={height_limit}]/best"
+        else:
+            # Without FFmpeg, choose a progressive format so audio is included.
+            format_selector = f"best[height<={height_limit}]/best"
 
     options = {
         "format": format_selector,
@@ -221,6 +230,9 @@ def run_download(job_id: str, url: str, quality: str) -> None:
         "progress_hooks": [progress_hook],
         "overwrites": True,
     }
+    if FFMPEG_PATH and quality != "audio":
+        options["ffmpeg_location"] = FFMPEG_PATH
+        options["merge_output_format"] = "mkv"
     try:
         with yt_dlp.YoutubeDL(options) as downloader:
             downloader.download([url])
