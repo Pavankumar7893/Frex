@@ -139,6 +139,7 @@ def cleanup_old_jobs() -> None:
             session_id for session_id, item in yt_frame_sessions.items()
             if now - item["created_at"] > YT_FRAME_TTL_SECONDS
             and item.get("status") not in ("downloading", "previewing", "exporting")
+            and (item.get("export") or {}).get("status") != "exporting"
         ]
         for session_id in expired_frames:
             shutil.rmtree(DOWNLOAD_ROOT / session_id, ignore_errors=True)
@@ -172,6 +173,9 @@ def extract_info(url: str) -> dict:
         "thumbnail": info.get("thumbnail"),
         "extractor": info.get("extractor_key") or info.get("extractor"),
         "webpage_url": info.get("webpage_url") or url,
+        "width": info.get("width"),
+        "height": info.get("height"),
+        "fps": info.get("fps"),
     }
 
 
@@ -595,6 +599,7 @@ def get_yt_frame_image(id: str, index: int):
 
 
 def run_yt_frame_export(session_id: str, export_id: str, indices: list[int], export_all: bool, image_format: str):
+    global active_youtube_frame_id
     session = yt_frame_sessions[session_id]
     export_dir = DOWNLOAD_ROOT / session_id / ("export_" + export_id)
     export_dir.mkdir(parents=True, exist_ok=True)
@@ -671,6 +676,10 @@ def run_yt_frame_export(session_id: str, export_id: str, indices: list[int], exp
             if session_id in yt_frame_sessions:
                 exp = yt_frame_sessions[session_id].get("export") or {}
                 exp.update(status="failed", detail="Frame ZIP export failed", error=str(exc)[:1200], process=None)
+    finally:
+        with lock:
+            if active_youtube_frame_id == session_id:
+                active_youtube_frame_id = None
 
 
 @app.post("/api/yt-frames/export")
@@ -681,6 +690,9 @@ def start_yt_frame_export(payload: YTFrameExportRequest):
             raise HTTPException(404, "Generate YouTube frame previews first.")
         if session.get("export") and session["export"].get("status") == "exporting":
             raise HTTPException(409, "A frame ZIP export is already running.")
+        if active_job_id is not None or (active_youtube_frame_id is not None and active_youtube_frame_id != payload.id):
+            raise HTTPException(409, "The Render service is processing another task. Wait for it to finish.")
+        active_youtube_frame_id = payload.id
         frame_count = int(session["frame_count"])
         if payload.all_frames:
             selected = list(range(frame_count))
