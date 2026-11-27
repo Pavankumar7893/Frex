@@ -23,7 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-APP_VERSION = "0.2.1"
+APP_VERSION = "0.2.2"
 MAX_DOWNLOAD_BYTES = 500 * 1024 * 1024
 MAX_YT_SOURCE_BYTES = 350 * 1024 * 1024
 MAX_YT_FRAMES = 500
@@ -618,14 +618,9 @@ def run_yt_frame_export(session_id: str, export_id: str, indices: list[int], exp
             FFMPEG_PATH, "-hide_banner", "-loglevel", "error", "-progress", "pipe:1", "-nostats",
             "-ss", f"{float(session['start']):.3f}", "-i", source_path,
             "-t", f"{float(session['end'] - session['start']):.3f}",
+            "-vf", vf,
+            "-fps_mode", "vfr", "-an", "-frames:v", str(len(selected)),
         ]
-        if export_all:
-            cmd += ["-vf", vf]
-        else:
-            filter_file = export_dir / "select_filter.txt"
-            filter_file.write_text(vf, encoding="utf-8")
-            cmd += ["-filter_script:v", str(filter_file)]
-        cmd += ["-fps_mode", "vfr", "-frames:v", str(len(selected))]
         if ext == "jpg":
             cmd += ["-q:v", "2"]
         else:
@@ -635,8 +630,12 @@ def run_yt_frame_export(session_id: str, export_id: str, indices: list[int], exp
             stderr=__import__("subprocess").STDOUT, text=True, encoding="utf-8", errors="replace", bufsize=1)
         with lock:
             yt_frame_sessions[session_id]["export"]["process"] = proc
+        ffmpeg_errors = []
         for raw in proc.stdout or []:
             line = raw.strip()
+            if line and not line.startswith(("frame=", "fps=", "stream_", "bitrate=", "total_size=", "out_time", "progress=", "dup_frames=", "drop_frames=")):
+                ffmpeg_errors.append(line[-600:])
+                ffmpeg_errors[:] = ffmpeg_errors[-8:]
             if line.startswith("frame="):
                 try:
                     current = int(line.split("=", 1)[1])
@@ -650,7 +649,8 @@ def run_yt_frame_export(session_id: str, export_id: str, indices: list[int], exp
         with lock:
             yt_frame_sessions[session_id]["export"]["process"] = None
         if code != 0:
-            raise RuntimeError("FFmpeg failed while rendering full-resolution frame images.")
+            detail = "\\n".join(ffmpeg_errors[-5:])
+            raise RuntimeError("FFmpeg failed while rendering full-resolution frame images. " + (detail or f"Exit code {code}."))
         outputs = sorted(export_dir.glob(f"frame_*.{ext}"))
         if len(outputs) != len(selected):
             raise RuntimeError(f"Expected {len(selected)} frames but FFmpeg produced {len(outputs)}.")
