@@ -90,7 +90,7 @@ def validate_public_url(raw: str) -> str:
 def client_key(request: Request) -> str:
     # Render supplies X-Forwarded-For from its proxy. Fall back to the ASGI peer.
     forwarded = request.headers.get("x-forwarded-for", "")
-    return forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown")
+    return forwarded.split(",")[-1].strip() if forwarded else (request.client.host if request.client else "unknown")
 
 
 def enforce_rate_limit(key: str) -> None:
