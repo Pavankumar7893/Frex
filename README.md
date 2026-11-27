@@ -2,7 +2,8 @@
 
 **Frex** is a Windows desktop video downloader and frame-extraction studio. It combines a local Python service with a dark WebView2 interface.
 
-> Current project version: **3.3.0**  
+> Documentation version: **3.3.0**  
+> **Repository code status:** the checked-in application files and installer asset are still from an earlier build; the 3.3.0 app source has not yet been uploaded.  
 > Platform: **Windows 10/11**  
 > Processing: **local on your PC**
 
@@ -66,7 +67,7 @@ These dependencies are installed on the user's machine by the installer or via `
 
 ## Project status
 
-This repository publishes the current 3.3.0 source and Windows installer bundle. The Android Studio project and Android release are not included in this repository version.
+The README and changelog describe the planned 3.3.0 feature set. **The current `main` branch does not yet contain the matching 3.3.0 application code or installer ZIP**; the `app/` and `release/` files remain an earlier build. Do not treat the repository as a 3.3.0 release until those assets are replaced. The Android Studio project and Android release are not included in this repository version.
 
 ## License
 
