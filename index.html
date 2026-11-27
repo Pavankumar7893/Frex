@@ -2,40 +2,209 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#090b10">
-<meta name="description" content="Frex — a local-first Windows video downloader and frame extraction studio.">
-<title>Frex — Video tools, without the clutter</title>
+<meta name="theme-color" content="#090c10">
+<meta name="description" content="Frex Web Studio: download YouTube thumbnails and extract frames from local video files in your browser.">
+<title>Frex Web Studio</title>
 <style>
-:root{color-scheme:dark;--bg:#090b10;--panel:#11151e;--line:#252c39;--muted:#9aa5b5;--text:#f4f7fb;--lime:#c7f36b;--cyan:#79e4dc}
-*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(ellipse at 75% 0%,#182331 0,transparent 42%),var(--bg);color:var(--text);font:16px/1.6 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}a{color:inherit;text-decoration:none}.wrap{width:min(1120px,calc(100% - 40px));margin:auto}
-nav{height:76px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #ffffff12}.brand{font-size:24px;font-weight:850;letter-spacing:-1.5px}.brand i{color:var(--lime);font-style:normal}.navlinks{display:flex;gap:28px;color:var(--muted);font-size:14px}.navlinks a:hover{color:var(--text)}
-.btn{display:inline-flex;align-items:center;justify-content:center;padding:12px 18px;border-radius:10px;background:var(--lime);color:#10140a;font-weight:800;font-size:14px}.btn.ghost{background:#ffffff0a;color:var(--text);border:1px solid var(--line)}
-.hero{padding:100px 0 78px;display:grid;grid-template-columns:1.1fr .9fr;gap:50px;align-items:center}.eyebrow{color:var(--lime);font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase}.hero h1{font-size:clamp(48px,7vw,82px);line-height:.98;letter-spacing:-5px;margin:18px 0 24px}.hero h1 span{color:var(--lime)}.hero p{max-width:570px;color:var(--muted);font-size:18px}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:30px}.visual{border:1px solid #ffffff20;background:linear-gradient(145deg,#1b2532,#10141c 70%);border-radius:22px;padding:18px;box-shadow:0 30px 100px #0008;transform:rotate(1deg)}.windowbar{display:flex;gap:6px;padding:3px 0 16px;border-bottom:1px solid var(--line)}.dot{width:8px;height:8px;border-radius:50%;background:#596271}.mock{display:grid;grid-template-columns:100px 1fr;min-height:245px}.side{padding:18px 10px;border-right:1px solid var(--line);color:var(--muted);font-size:11px}.side b{display:block;color:var(--lime);margin-bottom:18px}.side div{margin:12px 0}.mainmock{padding:20px}.mocktitle{font-size:19px;font-weight:800}.mocksub{font-size:11px;color:var(--muted);margin:5px 0 18px}.drop{border:1px dashed #657181;border-radius:12px;padding:20px;text-align:center;color:var(--muted);font-size:12px}.pill{display:inline-block;padding:5px 9px;background:#c7f36b1b;color:var(--lime);border-radius:20px;font-size:10px;margin:0 4px 12px 0}
-section{padding:72px 0;border-top:1px solid #ffffff12}.sectionhead{max-width:650px;margin-bottom:32px}.sectionhead h2{font-size:38px;letter-spacing:-1.8px;margin:8px 0}.sectionhead p{color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px}.ico{font-size:23px}.card h3{margin:14px 0 7px;font-size:18px}.card p{margin:0;color:var(--muted);font-size:14px}.status{font-size:10px;color:var(--cyan);letter-spacing:1px;text-transform:uppercase;font-weight:800}.status.planned{color:#f2c879}
-.split{display:grid;grid-template-columns:1fr 1fr;gap:24px}.panel{border:1px solid var(--line);border-radius:18px;padding:26px;background:#ffffff05}.panel h3{margin-top:0}.panel p,.panel li{color:var(--muted);font-size:14px}.panel ul{padding-left:18px}.release{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;background:linear-gradient(110deg,#1c2a1b,#121b22);border:1px solid #52683b;border-radius:18px;padding:28px}.release h3{margin:0 0 6px}.release p{margin:0;color:var(--muted);font-size:13px}
-footer{padding:32px 0;color:var(--muted);font-size:13px;display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
-@media(max-width:760px){.hero{grid-template-columns:1fr;padding:68px 0}.hero h1{letter-spacing:-3px}.grid{grid-template-columns:1fr}.split{grid-template-columns:1fr}.navlinks{gap:13px}.navlinks a:nth-child(2){display:none}.visual{transform:none}}
+:root{color-scheme:dark;--bg:#090c10;--panel:#111720;--panel2:#151e29;--line:#293543;--text:#f2f6f8;--muted:#9aa9b7;--lime:#c9f36c;--cyan:#83e7dd;--red:#ff8585;--radius:16px}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 80% -10%,#1e2d35 0,transparent 42%),var(--bg);color:var(--text);font:15px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}button,input,select{font:inherit}button{cursor:pointer}a{color:inherit;text-decoration:none}.wrap{width:min(1180px,calc(100% - 36px));margin:auto}
+header{border-bottom:1px solid #ffffff12;background:#090c10d9;backdrop-filter:blur(12px);position:sticky;top:0;z-index:5}.nav{height:68px;display:flex;align-items:center;justify-content:space-between}.brand{font-size:25px;font-weight:900;letter-spacing:-1.5px}.brand span{color:var(--lime)}.navright{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:13px}
+.badge{border:1px solid #46563a;color:var(--lime);border-radius:99px;padding:5px 10px;font-size:11px;font-weight:800;letter-spacing:.6px}
+.hero{padding:46px 0 25px;display:flex;justify-content:space-between;align-items:end;gap:30px}.eyebrow{color:var(--lime);font-weight:850;font-size:11px;letter-spacing:1.8px;text-transform:uppercase}.hero h1{font-size:clamp(34px,5vw,54px);line-height:1.04;letter-spacing:-2.5px;margin:10px 0}.hero p{color:var(--muted);max-width:660px;margin:0}.heroMark{color:#27313b;font-size:84px;font-weight:950;letter-spacing:-9px;line-height:.8}
+.tabs{display:flex;gap:7px;border-bottom:1px solid var(--line);padding:8px 0 13px;overflow:auto}.tab{border:1px solid transparent;background:transparent;color:var(--muted);border-radius:10px;padding:10px 15px;font-weight:750;white-space:nowrap}.tab.active{color:var(--lime);background:#c9f36c12;border-color:#627b3b}
+main{padding:24px 0 65px}.pane{display:none}.pane.active{display:block}.intro{margin:0 0 20px}.intro h2{font-size:25px;letter-spacing:-.8px;margin:0 0 4px}.intro p{margin:0;color:var(--muted);font-size:13px}
+.panel{background:linear-gradient(145deg,#151e29,#10161e);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin-bottom:17px}.label{display:block;font-size:12px;font-weight:800;color:#c4d0d9;margin-bottom:7px}input[type=text],input[type=number],select{width:100%;background:#090f16;border:1px solid #344352;color:var(--text);padding:12px 13px;border-radius:10px;outline:none}input:focus,select:focus{border-color:#a6d856;box-shadow:0 0 0 3px #c9f36c18}.row{display:flex;gap:10px;align-items:end}.grow{flex:1;min-width:0}.btn{border:1px solid transparent;border-radius:10px;padding:11px 15px;font-weight:850;font-size:13px;background:var(--lime);color:#10150a;white-space:nowrap}.btn:hover{filter:brightness(1.06)}.btn.secondary{background:#222d39;color:var(--text);border-color:#3a4857}.btn.danger{background:#402427;color:#ffdada;border-color:#69363a}.btn:disabled{opacity:.45;cursor:not-allowed}
+.hint{font-size:12px;color:var(--muted);margin-top:8px}.notice{border:1px solid #52613c;background:#c9f36c0c;padding:12px 14px;border-radius:11px;color:#d9e6ca;font-size:12px;margin-top:14px}.notice strong{color:var(--lime)}
+.thumbgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px}.thumb{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}.thumb img{display:block;width:100%;aspect-ratio:16/9;object-fit:contain;background:#080b0f}.thumbbody{padding:13px}.thumbtitle{font-weight:850;font-size:14px;display:flex;justify-content:space-between;gap:8px}.dim{font-size:11px;color:var(--muted);font-weight:500}.thumbbody .btn{width:100%;margin-top:11px}.state{font-size:10px;color:var(--cyan);font-weight:850;text-transform:uppercase;letter-spacing:.8px}.state.no{color:var(--red)}
+.controls{display:grid;grid-template-columns:1.3fr .7fr .7fr .7fr;gap:12px}.filebox{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.fileinput{max-width:100%;color:var(--muted);font-size:12px}.filelist{color:var(--muted);font-size:12px;margin-top:10px;max-height:94px;overflow:auto}.filelist div{padding:3px 0}
+.progresswrap{height:8px;background:#293441;border-radius:20px;overflow:hidden;margin:12px 0 6px}.progressbar{height:100%;width:0;background:linear-gradient(90deg,var(--lime),var(--cyan));transition:width .15s}.progressmeta{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-size:11px}
+.toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:17px 0 12px}.count{margin-left:auto;color:var(--muted);font-size:12px}.framegrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.frame{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}.frame.selected{border-color:#8dbb42;box-shadow:0 0 0 1px #8dbb4240}.frame img{display:block;width:100%;aspect-ratio:16/9;object-fit:contain;background:#05080c}.framefoot{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;gap:7px;font-size:11px;color:var(--muted)}.framefoot label{display:flex;align-items:center;gap:6px;cursor:pointer}.framefoot input{accent-color:var(--lime)}
+.pager{display:flex;align-items:center;justify-content:center;gap:12px;margin:16px 0}.pager span{font-size:12px;color:var(--muted)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}.aboutcard{padding:19px;border-radius:14px;border:1px solid var(--line);background:#ffffff04}.aboutcard h3{margin:0 0 7px;font-size:16px}.aboutcard p{color:var(--muted);font-size:13px;margin:0}.footer{border-top:1px solid #ffffff12;padding:22px 0 30px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.hidden{display:none!important}
+@media(max-width:850px){.framegrid{grid-template-columns:repeat(3,minmax(0,1fr))}.controls{grid-template-columns:repeat(2,1fr)}.heroMark{display:none}}
+@media(max-width:600px){.wrap{width:min(100% - 24px,1180px)}.hero{padding-top:32px}.thumbgrid{grid-template-columns:1fr}.thumb{display:grid;grid-template-columns:1.1fr .9fr}.thumb img{height:100%;aspect-ratio:auto}.framegrid{grid-template-columns:repeat(2,minmax(0,1fr))}.controls{grid-template-columns:1fr 1fr}.row{align-items:stretch}.navright .navlink{display:none}.panel{padding:15px}}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
 </head>
 <body>
+<header><div class="wrap nav"><a class="brand" href="#">frex<span>.</span></a><div class="navright"><span class="badge">WEB STUDIO</span><a class="navlink" href="https://github.com/Pavankumar7893/Frex" target="_blank" rel="noopener">Source ↗</a><a class="navlink" href="https://github.com/Pavankumar7893/Frex/releases" target="_blank" rel="noopener">Desktop app ↗</a></div></div></header>
 <div class="wrap">
-<nav><a class="brand" href="#">frex<i>.</i></a><div class="navlinks"><a href="#features">Features</a><a href="#roadmap">What’s next</a><a href="#install">Install</a><a href="https://github.com/Pavankumar7893/Frex">GitHub ↗</a></div></nav>
-<header class="hero">
-<div><div class="eyebrow">Windows desktop utility</div><h1>Video tools.<br><span>No clutter.</span></h1><p>Frex brings video downloading and frame extraction into one clean desktop workspace. Your media processing stays on your PC.</p><div class="actions"><a class="btn" href="https://github.com/Pavankumar7893/Frex">View source on GitHub ↗</a><a class="btn ghost" href="#features">Explore features</a></div></div>
-<div class="visual" aria-label="Illustration of the Frex desktop interface"><div class="windowbar"><i class="dot"></i><i class="dot"></i><i class="dot"></i></div><div class="mock"><aside class="side"><b>FREX / STUDIO</b><div>◫ &nbsp; Downloader</div><div>▦ &nbsp; Frame studio</div><div>▧ &nbsp; Thumbnails</div><div>⚙ &nbsp; Settings</div></aside><div class="mainmock"><span class="pill">LOCAL PROCESSING</span><span class="pill">WINDOWS</span><div class="mocktitle">Frame Extractor</div><div class="mocksub">Turn a video into a set of frames.</div><div class="drop">Drop a video URL here<br><br>Paste link to get started</div></div></div></div>
-</header>
-<section id="features"><div class="sectionhead"><div class="eyebrow">The toolkit</div><h2>Made for practical workflows.</h2><p>A focused desktop utility for downloading media and turning video into usable image sequences.</p></div><div class="grid">
-<article class="card"><div class="ico">↓</div><h3>Video downloader</h3><p>Single downloads, sequential queues, quality and format choices, plus trim options where supported.</p></article>
-<article class="card"><div class="ico">▦</div><h3>Frame extraction</h3><p>Choose a sampling rate, review paginated frame previews, select the frames you need, and export PNG or JPG ZIPs.</p></article>
-<article class="card"><div class="ico">⌁</div><h3>Local-first workflow</h3><p>Media processing runs on your Windows PC. The app uses a local service rather than a hosted media-processing backend.</p></article>
-</div></section>
-<section id="roadmap"><div class="sectionhead"><div class="eyebrow">Development status</div><h2>What’s in the works.</h2><p>These are documented 3.3.0 targets, not features represented as already shipped in the currently checked-in build.</p></div><div class="grid">
-<article class="card"><div class="status planned">Planned · 3.3.0</div><h3>Batch Frame Studio</h3><p>Process multiple video URLs sequentially with shared sampling and export settings.</p></article>
-<article class="card"><div class="status planned">Planned · 3.3.0</div><h3>Thumbnail downloader</h3><p>Preview and download available YouTube thumbnail sizes: max resolution, standard, and high quality.</p></article>
-<article class="card"><div class="status planned">Planned · 3.3.0</div><h3>Structured batch exports</h3><p>Organized per-video folders, metadata files, and a batch manifest for easier downstream workflows.</p></article>
-</div></section>
-<section id="install"><div class="sectionhead"><div class="eyebrow">Get started</div><h2>Source and installation.</h2><p>Frex is a Python-powered Windows desktop app. The repository currently contains an earlier application build; the matching 3.3.0 app source and installer have not yet been published.</p></div><div class="split"><div class="panel"><h3>For Windows users</h3><p>Check the repository’s Releases section for the currently published installer. Review the release notes and requirements before installing.</p><a class="btn" href="https://github.com/Pavankumar7893/Frex/releases">View releases ↗</a></div><div class="panel"><h3>For developers</h3><ul><li>Python 3.10 or newer</li><li>Microsoft Edge WebView2 Runtime</li><li>Dependencies listed in requirements.txt</li><li>Windows 10/11 environment</li></ul><a class="btn ghost" href="https://github.com/Pavankumar7893/Frex">Browse repository ↗</a></div></div></section>
-<div class="release"><div><h3>Frex is open source.</h3><p>Explore the code, follow development, and report issues on GitHub.</p></div><a class="btn" href="https://github.com/Pavankumar7893/Frex">Open GitHub repository ↗</a></div>
-<footer><span>© <span id="year">2026</span> Frex. Built for focused workflows.</span><span><a href="https://github.com/Pavankumar7893/Frex">GitHub</a> · MIT License</span></footer>
+<section class="hero"><div><div class="eyebrow">Your browser. Your files. Your workflow.</div><h1>Frex Web Studio</h1><p>Grab YouTube thumbnails, extract frames from videos on your device, and package batch exports. Local video files stay in your browser — they are not uploaded to a Frex server.</p></div><div class="heroMark">FX</div></section>
+<div class="tabs" role="tablist"><button class="tab active" data-tab="thumbs" role="tab" aria-selected="true">▧ &nbsp; Thumbnail downloader</button><button class="tab" data-tab="frames" role="tab" aria-selected="false">▦ &nbsp; Frame studio</button><button class="tab" data-tab="about" role="tab" aria-selected="false">ⓘ &nbsp; About &amp; limits</button></div>
+<main>
+<section class="pane active" id="pane-thumbs">
+<div class="intro"><h2>YouTube thumbnail downloader</h2><p>Paste a YouTube video link to preview the available thumbnail sizes.</p></div>
+<div class="panel"><div class="row"><div class="grow"><label class="label" for="yturl">YouTube video URL</label><input type="text" id="yturl" placeholder="https://www.youtube.com/watch?v=..." autocomplete="url"></div><button class="btn" id="getThumbs">Get thumbnails</button></div><div class="hint">Supports youtube.com, youtu.be, Shorts, embed and live links.</div><div id="thumbError" class="hint" role="status"></div></div>
+<div id="thumbResults" class="hidden"><div class="thumbgrid" id="thumbGrid"></div></div>
+<div class="notice"><strong>Heads up:</strong> Some videos do not have every thumbnail size. Frex checks each image and marks unavailable variants. The original image is fetched directly from YouTube's image host.</div>
+</section>
+<section class="pane" id="pane-frames">
+<div class="intro"><h2>Frame extraction studio</h2><p>Choose one or more video files from your device. Set the sampling rate and export selected frames as an organized ZIP.</p></div>
+<div class="panel">
+<div class="filebox"><div class="grow"><label class="label" for="videoFiles">Video files (up to 25)</label><input class="fileinput" id="videoFiles" type="file" accept="video/*,.mp4,.m4v,.mov,.webm,.mkv,.avi" multiple></div><button class="btn secondary" id="clearFiles" type="button">Clear files</button></div><div class="filelist" id="fileList">No video files selected.</div>
+<div class="controls" style="margin-top:17px">
+<div><label class="label" for="fps">Sampling rate (FPS)</label><input type="number" id="fps" min="0.1" max="30" step="0.1" value="1"></div>
+<div><label class="label" for="format">Image format</label><select id="format"><option value="png">PNG</option><option value="jpeg">JPG</option></select></div>
+<div><label class="label" for="startTime">Start (seconds)</label><input type="number" id="startTime" min="0" step="0.1" placeholder="0"></div>
+<div><label class="label" for="endTime">End (seconds)</label><input type="number" id="endTime" min="0" step="0.1" placeholder="Video end"></div>
 </div>
+<div class="hint">The same time range and FPS apply to each file. Leave End blank to use each video's full duration. Browser codec support varies by device.</div>
+<div class="row" style="margin-top:17px;flex-wrap:wrap"><button class="btn" id="extractBtn">Extract frames</button><button class="btn danger" id="cancelBtn" disabled>Cancel</button><button class="btn secondary" id="resetBtn">Reset results</button></div>
+<div id="progressArea" class="hidden"><div class="progresswrap"><div class="progressbar" id="progressBar"></div></div><div class="progressmeta"><span id="progressText">Preparing…</span><span id="progressPct">0%</span></div></div>
+<div class="hint" id="extractStatus" role="status"></div>
+</div>
+<div id="resultsArea" class="hidden">
+<div class="toolbar"><button class="btn secondary" id="selectAll">Select all</button><button class="btn secondary" id="selectNone">Select none</button><button class="btn secondary" id="invertSel">Invert selection</button><button class="btn" id="exportZip">Export selected ZIP</button><span class="count" id="frameCount"></span></div>
+<div class="framegrid" id="frameGrid"></div>
+<div class="pager"><button class="btn secondary" id="prevPage">← Previous</button><span id="pageLabel">Page 1</span><button class="btn secondary" id="nextPage">Next →</button></div>
+</div>
+<div class="notice"><strong>Local processing:</strong> Your selected video files are read by the browser and are not uploaded. This web version is currently capped at 500 frames per batch to avoid exhausting browser memory. For very long or high-FPS jobs, use the Frex Windows desktop app.</div>
+</section>
+<section class="pane" id="pane-about">
+<div class="intro"><h2>What this web version can do</h2><p>Useful tools that can safely run as a static site, without a hosted downloader backend.</p></div>
+<div class="two">
+<div class="aboutcard"><h3>✓ YouTube thumbnails</h3><p>Preview max resolution, standard and high-quality thumbnail variants, then download available images.</p></div>
+<div class="aboutcard"><h3>✓ Local video frame extraction</h3><p>Extract frames from files you select, at your chosen FPS and optional time range. Export selected images in a ZIP.</p></div>
+<div class="aboutcard"><h3>✓ Batch exports</h3><p>Process up to 25 local video files in sequence. The ZIP contains per-video folders, metadata JSON, and batch manifests.</p></div>
+<div class="aboutcard"><h3>Desktop-only capability</h3><p>Downloading full videos from YouTube and other supported sites requires the Frex Python/yt-dlp desktop application. A static GitHub Pages website cannot run that local Python backend.</p></div>
+</div>
+<div class="notice" style="margin-top:17px"><strong>Privacy note:</strong> Local video files are processed inside your browser tab. Thumbnail requests go to YouTube's image host. Avoid selecting private or sensitive files on a shared device.</div>
+<p style="margin-top:20px"><a class="btn" href="https://github.com/Pavankumar7893/Frex/releases" target="_blank" rel="noopener">Frex desktop releases ↗</a> <a class="btn secondary" href="https://github.com/Pavankumar7893/Frex" target="_blank" rel="noopener">Source code ↗</a></p>
+</section>
+</main>
+<footer><span>Frex Web Studio · Built for practical workflows</span><span>Local frame processing · No file upload server</span></footer>
+</div>
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const tabs = document.querySelectorAll('.tab');
+tabs.forEach(btn => btn.addEventListener('click', () => {
+  tabs.forEach(t => {t.classList.toggle('active',t===btn);t.setAttribute('aria-selected',t===btn?'true':'false')});
+  document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
+  $('pane-'+btn.dataset.tab).classList.add('active');
+}));
+function safeName(s){return (s||'video').replace(/\.[^.]+$/,'').replace(/[^a-z0-9_-]+/gi,'_').replace(/^_+|_+$/g,'').slice(0,70)||'video'}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function getVideoId(raw){
+ try{
+  const u=new URL(raw.trim()); let id='';
+  if(u.hostname==='youtu.be'||u.hostname.endsWith('.youtu.be')) id=u.pathname.split('/').filter(Boolean)[0]||'';
+  else if(u.hostname.endsWith('youtube.com')||u.hostname.endsWith('youtube-nocookie.com')){
+   id=u.searchParams.get('v')||'';
+   if(!id){const p=u.pathname.split('/').filter(Boolean);if(['shorts','embed','live','v'].includes(p[0]))id=p[1]||''}
+  } else return null;
+  return /^[A-Za-z0-9_-]{11}$/.test(id)?id:null;
+ }catch{return null}
+}
+const sizes=[
+ {key:'maxresdefault',name:'Max resolution',expected:'Up to 1280 × 720'},
+ {key:'sddefault',name:'Standard',expected:'Up to 640 × 480'},
+ {key:'hqdefault',name:'High quality',expected:'Up to 480 × 360'}
+];
+$('getThumbs').addEventListener('click',loadThumbs);
+$('yturl').addEventListener('keydown',e=>{if(e.key==='Enter')loadThumbs()});
+async function loadThumbs(){
+ const id=getVideoId($('yturl').value);$('thumbError').textContent='';$('thumbResults').classList.add('hidden');
+ if(!id){$('thumbError').textContent='Enter a valid YouTube video URL.';return}
+ $('getThumbs').disabled=true;$('getThumbs').textContent='Checking…';
+ const grid=$('thumbGrid');grid.innerHTML='';
+ sizes.forEach((s,i)=>{
+  const card=document.createElement('article');card.className='thumb';card.innerHTML='<img alt="'+s.name+' thumbnail preview" referrerpolicy="no-referrer"><div class="thumbbody"><div class="thumbtitle"><span>'+s.name+'</span><span class="state">Checking…</span></div><div class="dim">'+s.expected+'</div><button class="btn" disabled>Download image</button></div>';
+  grid.appendChild(card);const img=card.querySelector('img'),state=card.querySelector('.state'),dl=card.querySelector('button');const url='https://i.ytimg.com/vi/'+id+'/'+s.key+'.jpg';
+  img.onload=()=>{if(img.naturalWidth>120&&img.naturalHeight>90){state.textContent='Available · '+img.naturalWidth+' × '+img.naturalHeight;dl.disabled=false;dl.addEventListener('click',()=>downloadRemote(url,'Frex_'+id+'_'+s.key+'.jpg'))}else{state.textContent='Unavailable';state.classList.add('no');img.removeAttribute('src');dl.textContent='Not available'}};
+  img.onerror=()=>{state.textContent='Unavailable';state.classList.add('no');dl.textContent='Not available';dl.disabled=true};
+  img.src=url;
+ });
+ $('thumbResults').classList.remove('hidden');$('getThumbs').disabled=false;$('getThumbs').textContent='Get thumbnails';
+}
+async function downloadRemote(url,name){
+ try{const res=await fetch(url,{mode:'cors',cache:'no-store'});if(!res.ok)throw Error('Image fetch failed');const blob=await res.blob();const obj=URL.createObjectURL(blob);const a=document.createElement('a');a.href=obj;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(obj),30000)}
+ catch{const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.click();$('thumbError').textContent='Your browser opened the image in a new tab. Use Save image as to save it.'}
+}
+let selectedFiles=[],frames=[],fileMetadata=[],page=0,cancelRequested=false,isWorking=false;const PAGE_SIZE=72,MAX_FRAMES=500;
+$('videoFiles').addEventListener('change',e=>{selectedFiles=Array.from(e.target.files||[]).slice(0,25);renderFileList();if(e.target.files.length>25)$('extractStatus').textContent='Only the first 25 files were queued.'});
+function renderFileList(){$('fileList').innerHTML=selectedFiles.length?selectedFiles.map(f=>'<div>• '+esc(f.name)+' <span class="dim">('+formatBytes(f.size)+')</span></div>').join(''):'No video files selected.'}
+function formatBytes(n){if(n<1024)return n+' B';if(n<1048576)return (n/1024).toFixed(1)+' KB';return (n/1048576).toFixed(1)+' MB'}
+$('clearFiles').addEventListener('click',()=>{if(isWorking)return;selectedFiles=[];$('videoFiles').value='';renderFileList()});
+$('resetBtn').addEventListener('click',()=>{if(isWorking)return;clearResults();$('extractStatus').textContent='Results cleared.'});
+function clearResults(){frames.forEach(f=>URL.revokeObjectURL(f.url));frames=[];fileMetadata=[];page=0;$('resultsArea').classList.add('hidden');$('progressArea').classList.add('hidden');$('frameGrid').innerHTML=''}
+function waitEvent(el,event,failEvent,timeout=20000){return new Promise((resolve,reject)=>{let timer=setTimeout(()=>{clean();reject(Error('Timed out while reading the video.'))},timeout);const done=()=>{clean();resolve()};const fail=()=>{clean();reject(Error('The browser could not decode this video file.'))};function clean(){clearTimeout(timer);el.removeEventListener(event,done);if(failEvent)el.removeEventListener(failEvent,fail)}el.addEventListener(event,done,{once:true});if(failEvent)el.addEventListener(failEvent,fail,{once:true})})}
+async function seekTo(video,t){
+ if(Math.abs(video.currentTime-t)<0.015&&video.readyState>=2)return;
+ const p=waitEvent(video,'seeked','error');video.currentTime=Math.min(t,Math.max(0,video.duration-0.01));await p;
+}
+function canvasBlob(canvas,type){return new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('Could not encode the frame.')),type,type==='image/jpeg'?0.94:undefined))}
+$('extractBtn').addEventListener('click',extractBatch);
+$('cancelBtn').addEventListener('click',()=>{cancelRequested=true;$('cancelBtn').disabled=true;$('extractStatus').textContent='Cancellation requested…'});
+async function extractBatch(){
+ if(isWorking)return;
+ if(!selectedFiles.length){$('extractStatus').textContent='Choose at least one video file first.';return}
+ const fps=Number($('fps').value),startRaw=$('startTime').value,endRaw=$('endTime').value;
+ if(!Number.isFinite(fps)||fps<0.1||fps>30){$('extractStatus').textContent='FPS must be between 0.1 and 30.';return}
+ const start=startRaw===''?0:Number(startRaw),end=endRaw===''?null:Number(endRaw);
+ if(!Number.isFinite(start)||start<0||(end!==null&&(!Number.isFinite(end)||end<=start))){$('extractStatus').textContent='Check the start and end times.';return}
+ clearResults();cancelRequested=false;isWorking=true;$('extractBtn').disabled=true;$('clearFiles').disabled=true;$('cancelBtn').disabled=false;$('progressArea').classList.remove('hidden');$('extractStatus').textContent='Reading video files…';
+ let plan=[],total=0;
+ try{
+  for(const file of selectedFiles){
+   const obj=URL.createObjectURL(file),v=document.createElement('video');v.preload='metadata';v.muted=true;v.src=obj;v.load();
+   try{await waitEvent(v,'loadedmetadata','error');if(!Number.isFinite(v.duration)||v.duration<=0)throw Error('Video duration is unavailable.');
+    const st=Math.min(start,Math.max(0,v.duration-0.01)),en=end===null?v.duration:Math.min(end,v.duration);
+    if(en<=st)throw Error('The selected time range is outside this video.');
+    const count=Math.floor((en-st)*fps)+1;plan.push({file,obj,v,start:st,end:en,count,duration:v.duration});total+=count;
+   }catch(err){URL.revokeObjectURL(obj);throw new Error(file.name+': '+err.message)}
+  }
+  if(total>MAX_FRAMES)throw Error('This batch would create '+total+' frames. The web version is limited to '+MAX_FRAMES+' frames per batch. Lower FPS or shorten the time range.');
+  let completed=0;
+  for(let fi=0;fi<plan.length;fi++){
+   const item=plan[fi],base=safeName(item.file.name),meta={file:item.file.name,duration:item.duration,fps,start:item.start,end:item.end,frameCount:0,format:$('format').value};fileMetadata.push(meta);
+   const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d',{alpha:false});
+   for(let i=0;i<item.count;i++){
+    if(cancelRequested)break;
+    const t=Math.min(item.start+i/fps,Math.max(item.start,item.end-0.01));
+    await seekTo(item.v,t);
+    canvas.width=item.v.videoWidth;canvas.height=item.v.videoHeight;
+    if(!canvas.width||!canvas.height)throw Error('Video dimensions are unavailable for '+item.file.name+'.');
+    ctx.drawImage(item.v,0,0,canvas.width,canvas.height);
+    const type=$('format').value==='png'?'image/png':'image/jpeg',blob=await canvasBlob(canvas,type),url=URL.createObjectURL(blob);
+    frames.push({id:frames.length,file:item.file.name,folder:base,index:i+1,time:t,blob,url,selected:true,extension:$('format').value==='png'?'png':'jpg'});meta.frameCount++;completed++;
+    const pct=Math.round(completed/total*100);$('progressBar').style.width=pct+'%';$('progressPct').textContent=pct+'%';$('progressText').textContent='Video '+(fi+1)+'/'+plan.length+' · '+item.file.name+' · frame '+(i+1)+'/'+item.count;$('frameCount').textContent=frames.length+' frames · '+frames.filter(x=>x.selected).length+' selected';
+    if(i%8===0)await new Promise(r=>setTimeout(r,0));
+   }
+   item.v.removeAttribute('src');item.v.load();URL.revokeObjectURL(item.obj);
+   if(cancelRequested)break;
+  }
+  renderFrames();if(frames.length){$('resultsArea').classList.remove('hidden');$('extractStatus').textContent=(cancelRequested?'Extraction cancelled. ':'Done. ')+frames.length+' frames extracted from '+fileMetadata.length+' video(s).'}else $('extractStatus').textContent=cancelRequested?'Extraction cancelled. No frames were produced.':'No frames extracted.';
+ }catch(err){$('extractStatus').textContent=err.message||'Extraction failed.'}
+ finally{plan.forEach(x=>{try{x.v.removeAttribute('src');x.v.load();URL.revokeObjectURL(x.obj)}catch{}});isWorking=false;$('extractBtn').disabled=false;$('clearFiles').disabled=false;$('cancelBtn').disabled=true;$('progressText').textContent=cancelRequested?'Cancelled':'Finished'}
+}
+function renderFrames(){
+ const count=frames.length,pages=Math.max(1,Math.ceil(count/PAGE_SIZE));page=Math.min(page,pages-1);const slice=frames.slice(page*PAGE_SIZE,(page+1)*PAGE_SIZE);
+ $('frameGrid').innerHTML=slice.map(f=>'<article class="frame '+(f.selected?'selected':'')+'" data-id="'+f.id+'"><img loading="lazy" src="'+f.url+'" alt="Frame '+f.index+' from '+esc(f.file)+'"><div class="framefoot"><label><input type="checkbox" data-select="'+f.id+'" '+(f.selected?'checked':'')+'> <span>Frame '+f.index+'</span></label><span>'+f.time.toFixed(2)+'s</span></div></article>').join('');
+ $('frameCount').textContent=count+' frames · '+frames.filter(x=>x.selected).length+' selected';$('pageLabel').textContent='Page '+(page+1)+' of '+pages;$('prevPage').disabled=page===0;$('nextPage').disabled=page>=pages-1;$('exportZip').disabled=!frames.some(f=>f.selected);
+}
+$('frameGrid').addEventListener('change',e=>{const id=Number(e.target.dataset.select);if(!Number.isInteger(id))return;const f=frames.find(x=>x.id===id);if(f){f.selected=e.target.checked;renderFrames()}});
+$('prevPage').addEventListener('click',()=>{page=Math.max(0,page-1);renderFrames()});$('nextPage').addEventListener('click',()=>{page++;renderFrames()});
+$('selectAll').addEventListener('click',()=>{frames.forEach(f=>f.selected=true);renderFrames()});$('selectNone').addEventListener('click',()=>{frames.forEach(f=>f.selected=false);renderFrames()});$('invertSel').addEventListener('click',()=>{frames.forEach(f=>f.selected=!f.selected);renderFrames()});
+$('exportZip').addEventListener('click',exportZip);
+async function exportZip(){
+ const chosen=frames.filter(f=>f.selected);if(!chosen.length)return;
+ if(typeof JSZip==='undefined'){$('extractStatus').textContent='ZIP library did not load. Check your internet connection and reload the page.';return}
+ $('exportZip').disabled=true;$('extractStatus').textContent='Building ZIP archive…';
+ try{
+  const zip=new JSZip(),byFile={};
+  chosen.forEach(f=>{const folder=zip.folder(f.folder);folder.file('frame_'+String(f.index).padStart(5,'0')+'.'+f.extension,f.blob);byFile[f.file]=(byFile[f.file]||0)+1});
+  fileMetadata.forEach(m=>{const folder=zip.folder(safeName(m.file));folder.file('metadata.json',JSON.stringify({...m,exportedFrames:byFile[m.file]||0},null,2))});
+  const manifest={tool:'Frex Web Studio',createdAt:new Date().toISOString(),selectedFrameCount:chosen.length,files:fileMetadata.map(m=>({...m,exportedFrames:byFile[m.file]||0}))};
+  zip.file('manifest.json',JSON.stringify(manifest,null,2));
+  zip.file('manifest.csv','file,duration,fps,start,end,extractedFrames,exportedFrames\n'+fileMetadata.map(m=>[m.file,m.duration,m.fps,m.start,m.end,m.frameCount,byFile[m.file]||0].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n'));
+  const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:4}},m=>{$('progressBar').style.width=Math.round(m.percent)+'%';$('progressPct').textContent=Math.round(m.percent)+'%';$('progressText').textContent='Compressing ZIP…'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='Frex_Frame_Export.zip';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);$('extractStatus').textContent='ZIP exported: '+chosen.length+' selected frame(s), arranged in per-video folders.';
+ }catch(err){$('extractStatus').textContent='ZIP export failed: '+err.message}
+ finally{$('exportZip').disabled=!frames.some(f=>f.selected)}
+}
+})();
+</script>
 </body></html>
