@@ -23,8 +23,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-APP_VERSION = "0.1.0"
+APP_VERSION = "0.2.0"
 MAX_DOWNLOAD_BYTES = 500 * 1024 * 1024
+MAX_YT_SOURCE_BYTES = 350 * 1024 * 1024
+MAX_YT_FRAMES = 500
+MAX_YT_EXPORT_FRAMES = 300
+YT_FRAME_TTL_SECONDS = 30 * 60
 JOB_TTL_SECONDS = 45 * 60
 MAX_JOBS_PER_HOUR = 5
 DOWNLOAD_ROOT = Path(os.getenv("FREX_TEMP_DIR", "/tmp/frex-downloads"))
@@ -57,6 +61,8 @@ lock = threading.RLock()
 jobs: dict[str, dict] = {}
 recent_requests: dict[str, list[float]] = {}
 active_job_id: str | None = None
+active_youtube_frame_id: str | None = None
+yt_frame_sessions: dict[str, dict] = {}
 
 
 class InfoRequest(BaseModel):
@@ -66,6 +72,20 @@ class InfoRequest(BaseModel):
 class DownloadRequest(BaseModel):
     url: str = Field(min_length=8, max_length=2048)
     quality: Literal["best", "1080", "720", "480", "audio"] = "720"
+
+
+class YTFrameStartRequest(BaseModel):
+    url: str = Field(min_length=8, max_length=2048)
+    fps: float = Field(default=1, ge=0.1, le=5)
+    start: float = Field(default=0, ge=0)
+    end: float | None = Field(default=None, gt=0)
+
+
+class YTFrameExportRequest(BaseModel):
+    id: str = Field(min_length=16, max_length=64)
+    indices: list[int] = Field(default_factory=list, max_length=MAX_YT_EXPORT_FRAMES)
+    all_frames: bool = False
+    format: Literal["png", "jpg"] = "jpg"
 
 
 def validate_public_url(raw: str) -> str:
@@ -115,6 +135,14 @@ def cleanup_old_jobs() -> None:
         for job_id in expired:
             shutil.rmtree(DOWNLOAD_ROOT / job_id, ignore_errors=True)
             jobs.pop(job_id, None)
+        expired_frames = [
+            session_id for session_id, item in yt_frame_sessions.items()
+            if now - item["created_at"] > YT_FRAME_TTL_SECONDS
+            and item.get("status") not in ("downloading", "previewing", "exporting")
+        ]
+        for session_id in expired_frames:
+            shutil.rmtree(DOWNLOAD_ROOT / session_id, ignore_errors=True)
+            yt_frame_sessions.pop(session_id, None)
         for key, calls in list(recent_requests.items()):
             retained = [stamp for stamp in calls if now - stamp < 3600]
             if retained:
@@ -270,10 +298,12 @@ def create_download(payload: DownloadRequest, request: Request):
     key = client_key(request)
     enforce_rate_limit(key)
     with lock:
-        if active_job_id is not None:
-            active = jobs.get(active_job_id)
+        if active_job_id is not None or active_youtube_frame_id is not None:
+            active = jobs.get(active_job_id) if active_job_id else None
             if active and active["status"] in ("queued", "downloading", "processing"):
-                raise HTTPException(409, "The free demo is processing another download. Wait for it to finish.")
+                raise HTTPException(409, "The free demo is processing another task. Wait for it to finish.")
+            if active_youtube_frame_id is not None:
+                raise HTTPException(409, "The YouTube frame extractor is busy with another job. Wait for it to finish.")
         job_id = uuid.uuid4().hex
         jobs[job_id] = {
             "id": job_id,
@@ -315,6 +345,404 @@ def download_file(job_id: str):
             raise HTTPException(410, "The temporary file is no longer available. Start a new download.")
         media_type = "application/octet-stream"
         return FileResponse(path, media_type=media_type, filename=path.name, headers={"Cache-Control": "no-store"})
+
+
+
+
+def yt_frame_state_payload(session: dict) -> dict:
+    export = session.get("export")
+    return {
+        "id": session["id"],
+        "title": session["title"],
+        "uploader": session["uploader"],
+        "duration": session["duration"],
+        "duration_text": session["duration_text"],
+        "thumbnail": session.get("thumbnail"),
+        "width": session.get("width"),
+        "height": session.get("height"),
+        "fps": session["fps"],
+        "start": session["start"],
+        "end": session["end"],
+        "estimated_frames": session["estimated_frames"],
+        "frame_count": session.get("frame_count", 0),
+        "status": session["status"],
+        "stage": session.get("stage", ""),
+        "progress": session.get("progress", 0),
+        "detail": session.get("detail", ""),
+        "error": session.get("error", ""),
+        "export": {
+            k: export.get(k)
+            for k in ("id", "status", "progress", "detail", "error", "frame_count", "filename")
+        } if export else None,
+        "expires_in_seconds": max(0, YT_FRAME_TTL_SECONDS - int(time.time() - session["created_at"])),
+    }
+
+
+def run_yt_frame_preview(session_id: str, url: str, fps: float, start: float, end: float, info: dict) -> None:
+    global active_youtube_frame_id
+    job_dir = DOWNLOAD_ROOT / session_id
+    preview_dir = job_dir / "preview"
+    job_dir.mkdir(parents=True, exist_ok=True)
+    preview_dir.mkdir(parents=True, exist_ok=True)
+
+    def update(**values):
+        with lock:
+            if session_id in yt_frame_sessions:
+                yt_frame_sessions[session_id].update(values)
+
+    def hook(data: dict):
+        if data.get("status") == "downloading":
+            downloaded = int(data.get("downloaded_bytes") or 0)
+            if downloaded > MAX_YT_SOURCE_BYTES:
+                raise yt_dlp.utils.DownloadError("YouTube frame extraction is limited to 350 MB source video on the free service.")
+            total = data.get("total_bytes") or data.get("total_bytes_estimate")
+            pct = min(58.0, downloaded / total * 58.0) if total else None
+            update(
+                progress=round(pct, 1) if pct is not None else 5,
+                detail=f"Downloading YouTube source · {downloaded / (1024 * 1024):.1f} MB",
+            )
+
+    try:
+        update(status="downloading", stage="download", progress=1, detail="Downloading source video from YouTube…")
+        options = {
+            "format": "bestvideo[height<=720]/best[height<=720]/bestvideo/best",
+            "outtmpl": str(job_dir / "source.%(ext)s"),
+            "noplaylist": True,
+            "quiet": True,
+            "no_warnings": True,
+            "socket_timeout": 20,
+            "retries": 2,
+            "fragment_retries": 3,
+            "continuedl": False,
+            "max_filesize": MAX_YT_SOURCE_BYTES,
+            "progress_hooks": [hook],
+            "overwrites": True,
+        }
+        with yt_dlp.YoutubeDL(options) as downloader:
+            result = downloader.download([url])
+        if result not in (None, 0):
+            raise RuntimeError("yt-dlp could not download this YouTube source.")
+        sources = [
+            p for p in job_dir.glob("source.*")
+            if p.is_file() and p.stat().st_size > 0 and not p.name.endswith((".part", ".ytdl"))
+        ]
+        if not sources:
+            raise RuntimeError("YouTube source download finished, but no video file was found.")
+        source = max(sources, key=lambda p: p.stat().st_size)
+        if source.stat().st_size > MAX_YT_SOURCE_BYTES:
+            raise RuntimeError("The source exceeds the 350 MB free-service limit.")
+        update(
+            status="previewing",
+            stage="preview",
+            progress=62,
+            detail="Generating lightweight frame previews…",
+            source_path=str(source),
+        )
+        length = end - start
+        count = min(MAX_YT_FRAMES, max(1, int((length * fps) + 0.999999)))
+        cmd = [
+            FFMPEG_PATH, "-hide_banner", "-loglevel", "error", "-progress", "pipe:1", "-nostats",
+            "-ss", f"{start:.3f}", "-i", str(source), "-t", f"{length:.3f}",
+            "-vf", f"fps={fps:.8f},scale=480:-2:flags=lanczos",
+            "-frames:v", str(count), "-q:v", "5", "-start_number", "0",
+            str(preview_dir / "frame_%05d.jpg"),
+        ]
+        proc = __import__("subprocess").Popen(cmd, stdout=__import__("subprocess").PIPE, stderr=__import__("subprocess").STDOUT,
+            text=True, encoding="utf-8", errors="replace", bufsize=1)
+        with lock:
+            yt_frame_sessions[session_id]["process"] = proc
+        for raw in proc.stdout or []:
+            line = raw.strip()
+            if line.startswith("out_time_ms="):
+                try:
+                    seconds = int(line.split("=", 1)[1]) / 1_000_000
+                    pct = min(99, 62 + seconds / max(0.1, length) * 37)
+                    update(progress=round(pct, 1), detail=f"Generating frame previews · {pct:.0f}%")
+                except ValueError:
+                    pass
+        code = proc.wait()
+        with lock:
+            if session_id in yt_frame_sessions:
+                yt_frame_sessions[session_id]["process"] = None
+        if code != 0:
+            raise RuntimeError("FFmpeg could not decode this YouTube video. Try another video or a shorter range.")
+        preview_count = len(list(preview_dir.glob("frame_*.jpg")))
+        if preview_count <= 0:
+            raise RuntimeError("No frames were generated. Try a shorter range or a lower FPS.")
+        update(
+            status="ready",
+            stage="ready",
+            progress=100,
+            frame_count=preview_count,
+            detail=f"Preview ready · {preview_count} frames available",
+            error="",
+            width=info.get("width"),
+            height=info.get("height"),
+        )
+    except Exception as exc:
+        update(status="failed", stage="failed", progress=100, detail="Frame extraction failed", error=str(exc)[:1400])
+    finally:
+        with lock:
+            if active_youtube_frame_id == session_id:
+                active_youtube_frame_id = None
+
+
+@app.post("/api/yt-frames/start")
+def start_yt_frame_extraction(payload: YTFrameStartRequest, request: Request):
+    global active_youtube_frame_id
+    cleanup_old_jobs()
+    url = validate_public_url(payload.url)
+    if not FFMPEG_PATH:
+        raise HTTPException(503, "FFmpeg is unavailable on the Render service.")
+    enforce_rate_limit(client_key(request))
+    if payload.fps > 5:
+        raise HTTPException(400, "The Render free service supports up to 5 FPS for YouTube frame extraction.")
+    try:
+        info = extract_info(url)
+    except Exception as exc:
+        raise HTTPException(400, str(exc)[:700])
+    duration = float(info.get("duration") or 0)
+    if duration <= 0:
+        raise HTTPException(400, "Could not determine the source video's duration.")
+    start = float(payload.start)
+    end = float(payload.end) if payload.end is not None else duration
+    if start >= duration or end <= start or end > duration + 0.5:
+        raise HTTPException(400, f"Choose a valid range between 0 and {duration:.1f} seconds.")
+    estimate = max(1, int((end - start) * float(payload.fps) + 0.999999))
+    if estimate > MAX_YT_FRAMES:
+        raise HTTPException(400, f"This range would produce {estimate:,} frames. The free service limit is {MAX_YT_FRAMES:,}. Lower FPS or shorten the range.")
+    with lock:
+        if active_job_id is not None or active_youtube_frame_id is not None:
+            raise HTTPException(409, "The free Render service is already processing another download or frame task. Wait until it finishes.")
+        session_id = uuid.uuid4().hex
+        session = {
+            "id": session_id,
+            "url": url,
+            "title": info.get("title") or "YouTube video",
+            "uploader": info.get("uploader") or "Unknown creator",
+            "thumbnail": info.get("thumbnail"),
+            "duration": duration,
+            "duration_text": str(int(duration // 60)) + ":" + str(int(duration % 60)).zfill(2),
+            "width": None,
+            "height": None,
+            "fps": float(payload.fps),
+            "start": start,
+            "end": end,
+            "estimated_frames": estimate,
+            "frame_count": 0,
+            "status": "queued",
+            "stage": "queued",
+            "progress": 0,
+            "detail": "Queued for source download…",
+            "error": "",
+            "created_at": time.time(),
+            "source_path": "",
+            "process": None,
+            "preview_dir": str(DOWNLOAD_ROOT / session_id / "preview"),
+            "export": None,
+        }
+        yt_frame_sessions[session_id] = session
+        active_youtube_frame_id = session_id
+    executor.submit(run_yt_frame_preview, session_id, url, float(payload.fps), start, end, info)
+    return yt_frame_state_payload(session)
+
+
+@app.get("/api/yt-frames/state")
+def get_yt_frame_state(id: str):
+    cleanup_old_jobs()
+    with lock:
+        session = yt_frame_sessions.get(id)
+        if not session:
+            raise HTTPException(404, "YouTube frame session expired. Start the extraction again.")
+        return yt_frame_state_payload(session)
+
+
+@app.get("/api/yt-frames/page")
+def get_yt_frame_page(id: str, offset: int = 0, limit: int = 72):
+    with lock:
+        session = yt_frame_sessions.get(id)
+        if not session or session.get("status") != "ready":
+            raise HTTPException(409, "YouTube frame previews are not ready yet.")
+        count = int(session.get("frame_count", 0))
+    offset = max(0, offset)
+    limit = max(1, min(72, limit))
+    end = min(count, offset + limit)
+    frames = []
+    for index in range(offset, end):
+        frames.append({
+            "index": index,
+            "timestamp": round(float(session["start"]) + index / float(session["fps"]), 3),
+            "timestamp_text": f"{(float(session['start']) + index / float(session['fps'])):0.2f}s",
+            "image": f"/api/yt-frames/image?id={id}&index={index}",
+        })
+    return {"frames": frames, "offset": offset, "total": count, "has_more": end < count}
+
+
+@app.get("/api/yt-frames/image")
+def get_yt_frame_image(id: str, index: int):
+    with lock:
+        session = yt_frame_sessions.get(id)
+        if not session or session.get("status") != "ready":
+            raise HTTPException(404, "YouTube frame preview not found or expired.")
+        count = int(session["frame_count"])
+        directory = Path(session["preview_dir"])
+    if index < 0 or index >= count:
+        raise HTTPException(404, "Frame index is out of range.")
+    path = directory / f"frame_{index:05d}.jpg"
+    if not path.is_file():
+        raise HTTPException(404, "Frame preview image is missing.")
+    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=600"})
+
+
+def run_yt_frame_export(session_id: str, export_id: str, indices: list[int], export_all: bool, image_format: str):
+    session = yt_frame_sessions[session_id]
+    export_dir = DOWNLOAD_ROOT / session_id / ("export_" + export_id)
+    export_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        source_path = session["source_path"]
+        if not Path(source_path).is_file():
+            raise RuntimeError("Source video has expired. Run frame extraction again.")
+        selected = list(range(session["frame_count"])) if export_all else sorted(set(indices))
+        ext = "jpg" if image_format == "jpg" else "png"
+        vf = f"fps={float(session['fps']):.8f}"
+        if not export_all:
+            expr = "+".join(f"eq(n\\,{i})" for i in selected)
+            vf += f",select={expr}"
+        pattern = str(export_dir / f"frame_%05d.{ext}")
+        cmd = [
+            FFMPEG_PATH, "-hide_banner", "-loglevel", "error", "-progress", "pipe:1", "-nostats",
+            "-ss", f"{float(session['start']):.3f}", "-i", source_path,
+            "-t", f"{float(session['end'] - session['start']):.3f}",
+        ]
+        if export_all:
+            cmd += ["-vf", vf]
+        else:
+            filter_file = export_dir / "select_filter.txt"
+            filter_file.write_text(vf, encoding="utf-8")
+            cmd += ["-filter_script:v", str(filter_file)]
+        cmd += ["-fps_mode", "vfr", "-frames:v", str(len(selected))]
+        if ext == "jpg":
+            cmd += ["-q:v", "2"]
+        else:
+            cmd += ["-compression_level", "3"]
+        cmd += ["-start_number", "1", pattern]
+        proc = __import__("subprocess").Popen(cmd, stdout=__import__("subprocess").PIPE,
+            stderr=__import__("subprocess").STDOUT, text=True, encoding="utf-8", errors="replace", bufsize=1)
+        with lock:
+            yt_frame_sessions[session_id]["export"]["process"] = proc
+        for raw in proc.stdout or []:
+            line = raw.strip()
+            if line.startswith("frame="):
+                try:
+                    current = int(line.split("=", 1)[1])
+                    with lock:
+                        export = yt_frame_sessions[session_id].get("export") or {}
+                        export.update(progress=min(98, current / max(1, len(selected)) * 96),
+                                      detail=f"Rendering full-resolution frames · {current}/{len(selected)}")
+                except ValueError:
+                    pass
+        code = proc.wait()
+        with lock:
+            yt_frame_sessions[session_id]["export"]["process"] = None
+        if code != 0:
+            raise RuntimeError("FFmpeg failed while rendering full-resolution frame images.")
+        outputs = sorted(export_dir.glob(f"frame_*.{ext}"))
+        if len(outputs) != len(selected):
+            raise RuntimeError(f"Expected {len(selected)} frames but FFmpeg produced {len(outputs)}.")
+        zip_path = export_dir / "Frex_YouTube_Frames.zip"
+        with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_STORED) as archive:
+            for sequence, (path, frame_index) in enumerate(zip(outputs, selected), 1):
+                stamp = float(session["start"]) + frame_index / float(session["fps"])
+                archive.write(path, f"frame_{sequence:05d}_{stamp:.2f}s.{ext}")
+            archive.writestr("metadata.json", __import__("json").dumps({
+                "title": session["title"], "url": session["url"], "fps": session["fps"],
+                "start": session["start"], "end": session["end"],
+                "exported_frames": len(selected), "created_at": time.time(),
+            }, indent=2))
+        filename = f"Frex_YouTube_Frames_{len(selected)}_{export_id[:6]}.zip"
+        final_path = DOWNLOAD_ROOT / session_id / filename
+        shutil.copy2(zip_path, final_path)
+        with lock:
+            exp = yt_frame_sessions[session_id]["export"]
+            exp.update(status="complete", progress=100, detail=f"ZIP ready · {len(selected)} full-resolution frames",
+                       filename=filename, zip_path=str(final_path), error="", process=None)
+    except Exception as exc:
+        with lock:
+            if session_id in yt_frame_sessions:
+                exp = yt_frame_sessions[session_id].get("export") or {}
+                exp.update(status="failed", detail="Frame ZIP export failed", error=str(exc)[:1200], process=None)
+
+
+@app.post("/api/yt-frames/export")
+def start_yt_frame_export(payload: YTFrameExportRequest):
+    with lock:
+        session = yt_frame_sessions.get(payload.id)
+        if not session or session.get("status") != "ready":
+            raise HTTPException(404, "Generate YouTube frame previews first.")
+        if session.get("export") and session["export"].get("status") == "exporting":
+            raise HTTPException(409, "A frame ZIP export is already running.")
+        frame_count = int(session["frame_count"])
+        if payload.all_frames:
+            selected = list(range(frame_count))
+        else:
+            selected = sorted(set(payload.indices))
+            if not selected:
+                raise HTTPException(400, "Select at least one frame.")
+        if any(x < 0 or x >= frame_count for x in selected):
+            raise HTTPException(400, "One or more selected frame indexes are out of range.")
+        if len(selected) > MAX_YT_EXPORT_FRAMES:
+            raise HTTPException(400, f"The Render free service can export up to {MAX_YT_EXPORT_FRAMES} full-resolution frames per ZIP.")
+        export_id = uuid.uuid4().hex
+        session["export"] = {
+            "id": export_id, "status": "exporting", "progress": 0,
+            "detail": f"Preparing {len(selected)} selected frames…", "error": "",
+            "frame_count": len(selected), "filename": "", "zip_path": "", "process": None,
+        }
+    threading.Thread(
+        target=run_yt_frame_export,
+        args=(payload.id, export_id, selected, payload.all_frames, payload.format),
+        daemon=True,
+    ).start()
+    return {"ok": True, "id": export_id, "status": "exporting", "frame_count": len(selected)}
+
+
+@app.get("/api/yt-frames/download")
+def download_yt_frame_zip(id: str):
+    with lock:
+        session = yt_frame_sessions.get(id)
+        if not session:
+            raise HTTPException(404, "YouTube frame session expired.")
+        export = session.get("export") or {}
+        if export.get("status") != "complete":
+            raise HTTPException(409, "Frame ZIP is not ready.")
+        path = Path(export.get("zip_path", ""))
+        filename = export.get("filename") or "Frex_YouTube_Frames.zip"
+    if not path.is_file():
+        raise HTTPException(410, "The ZIP expired. Generate and export frames again.")
+    return FileResponse(path, media_type="application/zip", filename=filename, headers={"Cache-Control": "no-store"})
+
+
+@app.post("/api/yt-frames/cancel")
+def cancel_yt_frame_task(id: str):
+    global active_youtube_frame_id
+    with lock:
+        session = yt_frame_sessions.get(id)
+        if not session:
+            raise HTTPException(404, "Frame session not found.")
+        proc = session.get("process") or (session.get("export") or {}).get("process")
+        if session.get("status") in ("downloading", "previewing"):
+            session["status"] = "cancelled"
+            session["detail"] = "Cancellation requested."
+        if session.get("export") and session["export"].get("status") == "exporting":
+            session["export"]["status"] = "cancelled"
+            session["export"]["detail"] = "Cancellation requested."
+    if proc and proc.poll() is None:
+        proc.terminate()
+    with lock:
+        if active_youtube_frame_id == id:
+            active_youtube_frame_id = None
+    return {"ok": True}
+
 
 
 @app.get("/robots.txt")
