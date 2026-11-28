@@ -1735,8 +1735,8 @@ class FrexService:
 
         max_bitrate = None
         if method == "max_bitrate":
-            max_bitrate = int(float(options.get("max_mbps", 4)) * 1000)
-            if max_bitrate < 100 or max_bitrate > 100000:
+            max_bitrate = int(float(options.get("max_mbps", 4)) * 1_000_000)
+            if max_bitrate < 100_000 or max_bitrate > 100_000_000:
                 raise ValueError("Maximum bitrate must be between 0.1 and 100 Mbps.")
 
         if target_bytes is not None:
