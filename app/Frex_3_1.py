@@ -638,6 +638,192 @@ class FrexService:
         self.log(f"Frame export started · {len(selected):,} frame(s) · {image_format.upper()}")
         return {"id": export_id, "frame_count": len(selected), "status": "exporting"}
 
+    def _stream_direct_export_to_zip(self, job: dict) -> int:
+        """Pipe rendered images straight from FFmpeg into ZIP entries.
+
+        Direct mode must not create one temporary PNG/JPG file per frame. Besides
+        consuming huge amounts of disk, FFmpeg may be blocked from creating those
+        files by Windows security software even when Python can write the ZIP.
+        """
+        session_id = job["session_id"]
+        export_dir = Path(job["export_dir"])
+        export_dir.mkdir(parents=True, exist_ok=True)
+        zip_path = export_dir / "frames.zip"
+        source = Path(job["source_path"])
+        if not source.is_file() or source.stat().st_size <= 0:
+            raise FileNotFoundError(f"Direct export source video is missing: {source}")
+
+        fps = float(job["fps"])
+        estimate = max(1, int(math.ceil(float(job["length"]) * fps)))
+        cmd = [
+            self.ffmpeg or "ffmpeg", "-hide_banner", "-loglevel", "error",
+            "-ss", f"{job['start']:.3f}", "-i", str(source),
+            "-t", f"{job['length']:.3f}", "-map", "0:v:0", "-an",
+            "-vf", f"fps={fps:.8f}", "-fps_mode", "vfr",
+        ]
+        ext = str(job["format"]).lower()
+        if ext == "jpg":
+            cmd += ["-c:v", "mjpeg", "-q:v", "1"]
+        elif ext == "png":
+            cmd += ["-c:v", "png", "-compression_level", "3"]
+        else:
+            raise ValueError("Choose PNG or JPG output.")
+        cmd += ["-f", "image2pipe", "pipe:1"]
+
+        flags = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
+        proc = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            bufsize=0, creationflags=flags
+        )
+        with self.lock:
+            self.frame_process = proc
+
+        stderr_tail = []
+        def drain_stderr():
+            if proc.stderr is None:
+                return
+            for raw in iter(proc.stderr.readline, b""):
+                line = raw.decode("utf-8", errors="replace").strip()
+                if line:
+                    stderr_tail.append(line[:500])
+                    stderr_tail[:] = stderr_tail[-12:]
+
+        stderr_thread = threading.Thread(target=drain_stderr, daemon=True)
+        stderr_thread.start()
+        frame_count = 0
+
+        def member_name(index: int) -> str:
+            timestamp = float(job["start"]) + index / fps
+            label = self._frame_time(timestamp).replace(":", "-").replace(".", "_")
+            return f"frame_{index + 1:06d}_{label}.{ext}"
+
+        def update_progress(count: int) -> None:
+            with self.lock:
+                current_session = self.frame_sessions.get(session_id, {})
+                export = current_session.get("export") or {}
+                if export.get("id") == job["export_id"]:
+                    export["progress"] = min(98.0, count / estimate * 96.0)
+                    export["frame_count"] = count
+                    export["detail"] = f"Rendering directly into ZIP · {count:,} frame(s)"
+
+        def read_exact(stream, amount: int):
+            data = bytearray()
+            while len(data) < amount:
+                block = stream.read(min(1024 * 1024, amount - len(data)))
+                if not block:
+                    return None
+                data.extend(block)
+            return bytes(data)
+
+        try:
+            if proc.stdout is None:
+                raise RuntimeError("FFmpeg image stream could not be opened.")
+            with zipfile.ZipFile(
+                zip_path, "w", compression=zipfile.ZIP_STORED, allowZip64=True
+            ) as archive:
+                if ext == "png":
+                    png_signature = b"\x89PNG\r\n\x1a\n"
+                    while True:
+                        signature = proc.stdout.read(8)
+                        if not signature:
+                            break
+                        if signature != png_signature:
+                            raise RuntimeError("FFmpeg returned an invalid PNG image stream.")
+                        with archive.open(member_name(frame_count), "w", force_zip64=True) as item:
+                            item.write(signature)
+                            while True:
+                                header = read_exact(proc.stdout, 8)
+                                if header is None:
+                                    raise RuntimeError("PNG stream ended inside a chunk header.")
+                                chunk_size = int.from_bytes(header[:4], "big")
+                                chunk_type = header[4:]
+                                item.write(header)
+                                remaining = chunk_size
+                                while remaining:
+                                    block = proc.stdout.read(min(1024 * 1024, remaining))
+                                    if not block:
+                                        raise RuntimeError("PNG stream ended inside image data.")
+                                    item.write(block)
+                                    remaining -= len(block)
+                                crc = read_exact(proc.stdout, 4)
+                                if crc is None:
+                                    raise RuntimeError("PNG stream ended inside a chunk checksum.")
+                                item.write(crc)
+                                if chunk_type == b"IEND":
+                                    break
+                        frame_count += 1
+                        update_progress(frame_count)
+                else:
+                    buffer = bytearray()
+                    current_item = None
+                    soi, eoi = b"\xff\xd8", b"\xff\xd9"
+                    while True:
+                        block = proc.stdout.read(64 * 1024)
+                        if not block:
+                            break
+                        buffer.extend(block)
+                        while True:
+                            if current_item is None:
+                                start_at = buffer.find(soi)
+                                if start_at < 0:
+                                    if len(buffer) > 1:
+                                        del buffer[:-1]
+                                    break
+                                if start_at:
+                                    del buffer[:start_at]
+                                current_item = archive.open(member_name(frame_count), "w", force_zip64=True)
+
+                            end_at = buffer.find(eoi, 2)
+                            if end_at < 0:
+                                if len(buffer) > 1:
+                                    current_item.write(buffer[:-1])
+                                    del buffer[:-1]
+                                break
+
+                            current_item.write(buffer[:end_at + 2])
+                            current_item.close()
+                            current_item = None
+                            del buffer[:end_at + 2]
+                            frame_count += 1
+                            update_progress(frame_count)
+
+                    if current_item is not None:
+                        current_item.close()
+                        raise RuntimeError("JPEG stream ended before the last image was complete.")
+
+            code = proc.wait()
+            stderr_thread.join(timeout=3)
+            with self.lock:
+                self.frame_process = None
+                session = self.frame_sessions.get(session_id, {})
+                export = session.get("export") or {}
+                cancelled = bool(export.get("id") == job["export_id"] and export.get("cancel_requested"))
+            if cancelled:
+                zip_path.unlink(missing_ok=True)
+                with self.lock:
+                    export = self.frame_sessions.get(session_id, {}).get("export") or {}
+                    if export.get("id") == job["export_id"]:
+                        export.update(status="cancelled", detail="Frame export cancelled.")
+                return 0
+            if code != 0:
+                detail = "\n".join(stderr_tail[-8:]) or f"No FFmpeg diagnostic was returned (exit code {code})."
+                raise RuntimeError(f"FFmpeg image stream failed (exit code {code}): {detail}")
+            if frame_count <= 0:
+                detail = "\n".join(stderr_tail[-8:])
+                raise RuntimeError("FFmpeg completed but produced no images." + (f" {detail}" if detail else ""))
+            return frame_count
+        except Exception:
+            if proc.poll() is None:
+                self._terminate(proc)
+            try:
+                proc.wait(timeout=10)
+            except Exception:
+                pass
+            stderr_thread.join(timeout=2)
+            with self.lock:
+                self.frame_process = None
+            raise
+
     def _run_frame_export(self, job: dict) -> None:
         session_id, export_id = job["session_id"], job["export_id"]
         export_dir = Path(job["export_dir"])
@@ -648,6 +834,26 @@ class FrexService:
             if not source_session:
                 raise RuntimeError("Frame session disappeared before export.")
             job["source_path"] = str(self._resolve_frame_source(source_session))
+            if job.get("direct_export"):
+                output_count = self._stream_direct_export_to_zip(job)
+                if output_count <= 0:
+                    return
+                zip_path = export_dir / "frames.zip"
+                if not zip_path.is_file() or zip_path.stat().st_size <= 0:
+                    raise RuntimeError("The direct frame ZIP was not created.")
+                filename = f"Frex_Frames_{output_count}_{export_id[:6]}.zip"
+                final_zip = Path(self.frame_sessions[session_id]["session_dir"]) / filename
+                shutil.move(str(zip_path), str(final_zip))
+                with self.lock:
+                    exp = self.frame_sessions[session_id].get("export") or {}
+                    if exp.get("id") == export_id:
+                        exp.update(
+                            status="complete", progress=100.0, frame_count=output_count,
+                            detail=f"Ready · {output_count:,} full-quality frames",
+                            filename=filename, zip_path=str(final_zip), error=""
+                        )
+                self.log(f"Direct frame ZIP ready · {output_count:,} frame(s) · {filename}")
+                return
             fps = float(job["fps"])
             vf = f"fps={fps:.8f}"
             selected = job["selected"]
