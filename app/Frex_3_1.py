@@ -41,10 +41,8 @@ if not Path(PYTHON_EXECUTABLE).is_file():
 SETTINGS_FILE = APPDATA / "settings.json"
 MAX_BATCH = 100
 MAX_FRAME_BATCH_URLS = 25
-MAX_FRAME_BATCH_TOTAL = 50000
 MAX_BODY = 2 * 1024 * 1024
 MAX_FRAME_PREVIEWS = 12000
-MAX_SELECTED_FRAME_EXPORT = 2000
 # Full-range exports have no configured frame-count ceiling; disk space and runtime are the practical limits.
 FRAME_CACHE_TTL_SECONDS = 48 * 60 * 60
 FRAME_PAGE_SIZE = 72
@@ -584,11 +582,6 @@ class FrexService:
                     raise ValueError("Select at least one frame first.")
                 if selected[0] < 0 or selected[-1] >= total_available:
                     raise ValueError("One or more selected frames are out of range.")
-            if not export_all and len(selected) > MAX_SELECTED_FRAME_EXPORT:
-                raise ValueError(
-                    f"A custom selection is limited to {MAX_SELECTED_FRAME_EXPORT:,} frames. "
-                    "Use Extract Full Video for a complete range at this FPS."
-                )
             export_id = uuid.uuid4().hex
             export_dir = Path(session["session_dir"]) / f"export_{export_id}"
             export_dir.mkdir(parents=True, exist_ok=True)
@@ -871,11 +864,6 @@ class FrexService:
                         frame_count = int(session.get("frame_count") or 0)
                         if frame_count <= 0:
                             raise RuntimeError("No frames were generated for this video.")
-                        if total_frames + frame_count > MAX_FRAME_BATCH_TOTAL:
-                            raise RuntimeError(
-                                f"Batch safety cap reached ({MAX_FRAME_BATCH_TOTAL:,} frames total). "
-                                "Reduce FPS or shorten the time ranges, then split the batch."
-                            )
                         self._batch_item_update(batch_id, item_index, status="exporting", frame_count=frame_count,
                                                  detail=f"Exporting {frame_count:,} source-resolution frames")
                         export = self.start_frame_export(session_id, [], True, batch["format"], allow_batch=True)
