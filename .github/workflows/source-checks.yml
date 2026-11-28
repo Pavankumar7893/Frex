@@ -1,0 +1,32 @@
+name: Frex source checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  source-checks:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Compile Python source
+        run: python -m py_compile app/Frex_3_1.py
+      - name: Check inline JavaScript syntax
+        shell: pwsh
+        run: |
+          $html = Get-Content app/Frex_3_1.html -Raw
+          $matches = [regex]::Matches($html, '(?s)<script[^>]*>(.*?)</script>')
+          if ($matches.Count -eq 0) { throw "No inline JavaScript block found." }
+          $script = ($matches | ForEach-Object { $_.Groups[1].Value }) -join "`n"
+          Set-Content -Path "$env:RUNNER_TEMP\frex-inline.js" -Value $script -Encoding utf8
+          node --check "$env:RUNNER_TEMP\frex-inline.js"
