@@ -651,8 +651,12 @@ class FrexService:
             with self.lock:
                 self.frame_process = proc
             assert proc.stdout is not None
+            ffmpeg_tail = []
             for raw in proc.stdout:
                 line = raw.strip()
+                if line and not line.startswith(("frame=", "fps=", "stream_")) and "=" not in line:
+                    ffmpeg_tail.append(line[:500])
+                    ffmpeg_tail[:] = ffmpeg_tail[-10:]
                 if line.startswith("frame="):
                     try:
                         current = int(line.split("=", 1)[1])
@@ -683,7 +687,8 @@ class FrexService:
                         exp.update(status="cancelled", detail="Frame export cancelled.")
                 return
             if code != 0:
-                raise RuntimeError("FFmpeg failed while rendering selected frames. Try JPG or reduce the selection size.")
+                detail = "\n".join(ffmpeg_tail[-6:]) or f"No FFmpeg diagnostic was returned (exit code {code})."
+                raise RuntimeError(f"FFmpeg failed while rendering frames (exit code {code}): {detail}")
             outputs = sorted(export_dir.glob(f"frame_*.{ext}"))
             if job.get("direct_export"):
                 if not outputs:
