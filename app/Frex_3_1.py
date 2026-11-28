@@ -1819,7 +1819,8 @@ class FrexService:
                 if is_two_pass:
                     cmd += ["-pass", str(pass_number), "-passlogfile", str(passlog)]
                 if pass_number == 1 and is_two_pass:
-                    cmd += ["-an", "-f", "null", "NUL" if os.name == "nt" else "/dev/null"]
+                    cmd += ["-an", "-progress", "pipe:1", "-nostats",
+                            "-f", "null", "NUL" if os.name == "nt" else "/dev/null"]
                 else:
                     cmd += audio_args + ["-movflags", "+faststart", "-progress", "pipe:1", "-nostats", str(output)]
                 flags = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
@@ -1930,6 +1931,16 @@ class FrexService:
             self._terminate(proc)
         self.log("Compression cancellation requested.")
 
+    def compression_download_path(self, job_id: str) -> tuple[Path, str]:
+        with self.lock:
+            job = self.compression_job
+            if not job or job.get("id") != job_id or job.get("status") != "complete":
+                raise ValueError("This compressed video is not ready to download.")
+            path = Path(job["output_path"])
+        if not path.is_file() or path.stat().st_size <= 0:
+            raise FileNotFoundError("The compressed output file is no longer available.")
+        return path, path.name
+
     def install_or_update(self) -> dict:
         self.log("Starting yt-dlp install/update using this Python interpreter…")
         result = subprocess.run([PYTHON_EXECUTABLE, "-m", "pip", "install", "--upgrade", "yt-dlp"],
@@ -2010,6 +2021,21 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/api/compress/state":
             return self._send(200, SERVICE.compression_state())
+        if parsed.path == "/api/compress/download":
+            from urllib.parse import parse_qs
+            q = parse_qs(parsed.query)
+            path, filename = SERVICE.compression_download_path((q.get("id") or [""])[0])
+            size = path.stat().st_size
+            self.send_response(200)
+            self.send_header("Content-Type", "video/mp4")
+            self.send_header("Content-Length", str(size))
+            self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            with path.open("rb") as stream:
+                shutil.copyfileobj(stream, self.wfile, length=1024 * 1024)
+            return
         if parsed.path == "/api/compress/capabilities":
             return self._send(200, SERVICE.compression_capabilities())
         if parsed.path == "/api/frames/state":
