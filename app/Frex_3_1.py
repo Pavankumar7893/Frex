@@ -607,6 +607,7 @@ class FrexService:
             snapshot = {
                 "session_id": session_id, "export_id": export_id, "selected": selected,
                 "export_all": bool(export_all), "format": image_format, "fps": fps,
+                "direct_export": bool(session.get("direct_export")),
                 "start": float(session["start"]), "length": duration,
                 "source_path": session["source_path"], "export_dir": str(export_dir),
             }
@@ -636,7 +637,9 @@ class FrexService:
                 cmd += ["-filter_script:v", str(filter_script)]
             else:
                 cmd += ["-vf", vf]
-            cmd += ["-fps_mode", "vfr", "-frames:v", str(len(selected))]
+            cmd += ["-fps_mode", "vfr"]
+            if not job.get("direct_export"):
+                cmd += ["-frames:v", str(len(selected))]
             if ext == "jpg":
                 cmd += ["-q:v", "1"]
             else:
@@ -682,7 +685,14 @@ class FrexService:
             if code != 0:
                 raise RuntimeError("FFmpeg failed while rendering selected frames. Try JPG or reduce the selection size.")
             outputs = sorted(export_dir.glob(f"frame_*.{ext}"))
-            if len(outputs) != len(selected):
+            if job.get("direct_export"):
+                if not outputs:
+                    raise RuntimeError("FFmpeg did not produce any frames for the direct export.")
+                if len(outputs) > MAX_FRAME_EXPORT:
+                    raise RuntimeError(f"FFmpeg produced {len(outputs):,} frames, above the {MAX_FRAME_EXPORT:,}-frame ZIP limit.")
+                # Direct mode does not have preview indexes; use the actual rendered count.
+                selected = list(range(len(outputs)))
+            elif len(outputs) != len(selected):
                 raise RuntimeError(f"Expected {len(selected)} frame(s), but FFmpeg produced {len(outputs)}. Try again or reduce FPS.")
             with zipfile.ZipFile(export_dir / "frames.zip", "w", compression=zipfile.ZIP_STORED) as archive:
                 for sequence, (path, frame_index) in enumerate(zip(outputs, selected), 1):
@@ -697,7 +707,8 @@ class FrexService:
             with self.lock:
                 exp = self.frame_sessions[session_id].get("export") or {}
                 if exp.get("id") == export_id:
-                    exp.update(status="complete", progress=100.0, detail=f"Ready · {len(selected):,} full-quality frames",
+                    exp.update(status="complete", progress=100.0, frame_count=len(outputs),
+                               detail=f"Ready · {len(outputs):,} full-quality frames",
                                filename=filename, zip_path=str(final_zip), error="")
             self.log(f"Frame export ready · {len(selected):,} frame(s) · {filename}")
         except Exception as exc:
