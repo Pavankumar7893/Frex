@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Frex 3.2.0 - local web UI, downloader, and batch frame extractor.
+"""Frex 3.3.0 - local downloader, frame studio, and video compressor.
 
 Run with Python 3.10+. The UI is served only on 127.0.0.1; no cloud service is used.
 Install/update downloader: py -m pip install -U yt-dlp
@@ -1985,7 +1985,7 @@ SERVICE = FrexService()
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "FrexLocal/3.2.0"
+    server_version = "FrexLocal/3.3.0"
 
     def log_message(self, fmt, *args):
         # Keep access logs quiet; they may contain request paths with URL parameters.
@@ -2207,7 +2207,7 @@ def main() -> None:
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     server.daemon_threads = True
     url = f"http://127.0.0.1:{port}/"
-    SERVICE.log("Frex 3.2.0 desktop service started. Processing runs locally.")
+    SERVICE.log("Frex 3.3.0 desktop service started. Processing runs locally.")
     server_thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.4}, daemon=True)
     server_thread.start()
 
