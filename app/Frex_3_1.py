@@ -554,6 +554,41 @@ class FrexService:
             raise ValueError("Frame preview file is missing.")
         return path
 
+    def _resolve_frame_source(self, session: dict) -> Path:
+        """Resolve the downloaded source again immediately before FFmpeg uses it."""
+        expected = Path(str(session.get("source_path") or ""))
+        if expected.is_file() and expected.stat().st_size > 0:
+            return expected.resolve()
+
+        session_dir = Path(session.get("session_dir") or "")
+        candidates = []
+        try:
+            candidates = [
+                path for path in session_dir.glob("source.*")
+                if path.is_file()
+                and path.stat().st_size > 0
+                and not path.name.lower().endswith((".part", ".ytdl", ".temp"))
+            ]
+        except OSError:
+            candidates = []
+
+        if candidates:
+            recovered = max(candidates, key=lambda path: path.stat().st_size).resolve()
+            session["source_path"] = str(recovered)
+            self.log(f"Recovered frame source path · {recovered.name}")
+            return recovered
+
+        try:
+            contents = ", ".join(sorted(path.name for path in session_dir.iterdir())[:20])
+        except OSError:
+            contents = "session folder is unavailable"
+        raise FileNotFoundError(
+            "The downloaded source video is missing before FFmpeg export. "
+            f"Expected: {expected}. Files currently in the session folder: {contents or '(empty)'}. "
+            "The source may have been moved, removed by cleanup software, or the download did not finish correctly. "
+            "Start Direct Download again so Frex can download a fresh source."
+        )
+
     def start_frame_export(self, session_id: str, indices=None, export_all=False, image_format="png", allow_batch=False) -> dict:
         indices = indices or []
         image_format = str(image_format).lower()
@@ -567,6 +602,7 @@ class FrexService:
                 raise ValueError("Generate frame previews before exporting.")
             if (session.get("export") or {}).get("status") == "exporting":
                 raise RuntimeError("A frame export is already running for this video.")
+            source_path = self._resolve_frame_source(session)
             total_available = int(session["frame_count"])
             fps = float(session["fps"])
             duration = float(session["end"] - session["start"])
@@ -596,7 +632,7 @@ class FrexService:
                 "export_all": bool(export_all), "format": image_format, "fps": fps,
                 "direct_export": bool(session.get("direct_export")),
                 "start": float(session["start"]), "length": duration,
-                "source_path": session["source_path"], "export_dir": str(export_dir),
+                "source_path": str(source_path), "export_dir": str(export_dir),
             }
         threading.Thread(target=self._run_frame_export, args=(snapshot,), daemon=True).start()
         self.log(f"Frame export started · {len(selected):,} frame(s) · {image_format.upper()}")
@@ -607,6 +643,11 @@ class FrexService:
         export_dir = Path(job["export_dir"])
         ext = job["format"]
         try:
+            with self.lock:
+                source_session = self.frame_sessions.get(session_id)
+            if not source_session:
+                raise RuntimeError("Frame session disappeared before export.")
+            job["source_path"] = str(self._resolve_frame_source(source_session))
             fps = float(job["fps"])
             vf = f"fps={fps:.8f}"
             selected = job["selected"]
