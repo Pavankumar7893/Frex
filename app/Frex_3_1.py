@@ -710,8 +710,8 @@ class FrexService:
             with self.lock:
                 exp = self.frame_sessions[session_id].get("export") or {}
                 if exp.get("id") == export_id:
-                    exp.update(status="complete", progress=100.0, frame_count=len(outputs),
-                               detail=f"Ready · {len(outputs):,} full-quality frames",
+                    exp.update(status="complete", progress=100.0, frame_count=output_count,
+                               detail=f"Ready · {output_count:,} full-quality frames",
                                filename=filename, zip_path=str(final_zip), error="")
             self.log(f"Frame export ready · {output_count:,} frame(s) · {filename}")
         except Exception as exc:
