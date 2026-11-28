@@ -232,7 +232,7 @@ async function pollFrameSession(){
   const ex=s.export||null;
   const extractionActive=['downloading','previewing'].includes(s.status);
   const exportActive=ex?.status==='exporting';
-  const directExportPending=!!s.direct_export&&!ex;
+  const directExportPending=s.status==='ready'&&!!s.direct_export&&!ex;
   state.frameBusy=extractionActive||exportActive||directExportPending;
   frameSetProgress(s.progress||0,s.detail||s.status);
   $('cancelFrames').disabled=!state.frameBusy;
