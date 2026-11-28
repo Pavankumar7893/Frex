@@ -679,26 +679,31 @@ class FrexService:
                 with self.lock:
                     if exp.get("id") == export_id:
                         exp.update(status="cancelled", detail="Frame export cancelled.")
+                shutil.rmtree(export_dir, ignore_errors=True)
                 return
             if code != 0:
                 detail = "\n".join(ffmpeg_tail[-6:]) or f"No FFmpeg diagnostic was returned (exit code {code})."
                 raise RuntimeError(f"FFmpeg failed while rendering frames (exit code {code}): {detail}")
-            outputs = sorted(export_dir.glob(f"frame_*.{ext}"))
+            output_count = sum(1 for _ in export_dir.glob(f"frame_*.{ext}"))
             if job.get("direct_export"):
-                if not outputs:
+                if output_count <= 0:
                     raise RuntimeError("FFmpeg did not produce any frames for the direct export.")
-                # Direct mode does not have preview indexes; use the actual rendered count.
-                # range() avoids allocating a second large index list.
-                selected = range(len(outputs))
-            elif len(outputs) != len(selected):
-                raise RuntimeError(f"Expected {len(selected)} frame(s), but FFmpeg produced {len(outputs)}. Try again or reduce FPS.")
-            with zipfile.ZipFile(export_dir / "frames.zip", "w", compression=zipfile.ZIP_STORED) as archive:
-                for sequence, (path, frame_index) in enumerate(zip(outputs, selected), 1):
+                # Direct mode uses actual rendered count, without a hard-coded count ceiling.
+                selected = range(output_count)
+            elif output_count != len(selected):
+                raise RuntimeError(f"Expected {len(selected)} frame(s), but FFmpeg produced {output_count}. Try again or reduce FPS.")
+            with zipfile.ZipFile(export_dir / "frames.zip", "w", compression=zipfile.ZIP_STORED, allowZip64=True) as archive:
+                for sequence, frame_index in enumerate(selected, 1):
+                    path = export_dir / f"frame_{sequence:06d}.{ext}"
+                    if not path.is_file():
+                        raise RuntimeError(f"Frame file {sequence:,} is missing while packaging the ZIP.")
                     timestamp = job["start"] + frame_index / fps
                     label = self._frame_time(timestamp).replace(":", "-").replace(".", "_")
                     archive.write(path, f"frame_{sequence:06d}_{label}.{ext}")
+                    # Release each full-resolution temporary image after it has been added.
+                    path.unlink(missing_ok=True)
             zip_path = export_dir / "frames.zip"
-            filename = f"Frex_Frames_{len(selected)}_{export_id[:6]}.zip"
+            filename = f"Frex_Frames_{output_count}_{export_id[:6]}.zip"
             # Move the finished archive into the session root so the download endpoint has a stable path.
             final_zip = Path(self.frame_sessions[session_id]["session_dir"]) / filename
             shutil.move(str(zip_path), str(final_zip))
@@ -708,8 +713,9 @@ class FrexService:
                     exp.update(status="complete", progress=100.0, frame_count=len(outputs),
                                detail=f"Ready · {len(outputs):,} full-quality frames",
                                filename=filename, zip_path=str(final_zip), error="")
-            self.log(f"Frame export ready · {len(selected):,} frame(s) · {filename}")
+            self.log(f"Frame export ready · {output_count:,} frame(s) · {filename}")
         except Exception as exc:
+            shutil.rmtree(export_dir, ignore_errors=True)
             with self.lock:
                 self.frame_process = None
                 session = self.frame_sessions.get(session_id, {})
