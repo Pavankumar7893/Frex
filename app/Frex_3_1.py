@@ -131,6 +131,8 @@ class FrexService:
         self.compression_process: subprocess.Popen | None = None
         self.compression_job: dict | None = None
         self.compression_thread: threading.Thread | None = None
+        self.compression_caps_cache: dict | None = None
+        self.compression_caps_checked_at = 0.0
         self.settings = self._load_settings()
         self.folder = self.settings.get("folder", str(DEFAULT_FOLDER))
         self.mode = self.settings.get("mode", "Video")
@@ -1530,6 +1532,9 @@ class FrexService:
 
     def compression_capabilities(self) -> dict:
         """Report encoders actually present in the selected FFmpeg build."""
+        with self.lock:
+            if self.compression_caps_cache and time.time() - self.compression_caps_checked_at < 300:
+                return dict(self.compression_caps_cache)
         if not self.ffmpeg:
             return {"ffmpeg": False, "encoders": [], "gpu": [], "message": "FFmpeg is not available."}
         try:
@@ -1564,20 +1569,24 @@ class FrexService:
                     [self.ffmpeg, "-hide_banner", "-loglevel", "error", "-f", "lavfi",
                      "-i", "color=c=black:s=64x64:d=0.04", "-frames:v", "1",
                      "-an", "-c:v", encoder, "-f", "null", "-"],
-                    capture_output=True, text=True, timeout=8,
+                    capture_output=True, text=True, timeout=3,
                     creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
                 )
                 if test.returncode == 0:
                     gpu.append({"id": encoder, "label": label})
             except Exception:
                 pass
-        return {
+        result_data = {
             "ffmpeg": True,
             "encoders": sorted(encoders),
             "cpu": {"h264": "libx264" in encoders, "h265": "libx265" in encoders},
             "gpu": gpu,
             "message": "Encoder availability is checked against this PC's FFmpeg build and hardware."
         }
+        with self.lock:
+            self.compression_caps_cache = dict(result_data)
+            self.compression_caps_checked_at = time.time()
+        return result_data
 
     def choose_compression_input(self) -> dict:
         try:
