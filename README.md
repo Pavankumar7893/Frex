@@ -15,6 +15,8 @@
 - Opt-in advanced account/cookie controls. They remain disabled unless explicitly enabled in the UI.
 - Frame Extractor with custom sampling rate (0.1–30 FPS), paginated previews, per-frame selection, select/deselect/invert, selected-frame export, and full-range extraction.
 - PNG and high-quality JPG frame exports packaged as ZIP files.
+- **Video Size Studio:** local FFmpeg-based MP4 compression with H.264/H.265 CPU encoding, verified GPU encoders when available, target-size percentage/MB (two-pass CPU encoding), CRF quality, resolution, and maximum-bitrate modes.
+- Compression progress, cancellation, output-size comparison, and compatibility settings for older devices. CPU thread controls default to a conservative setting for modest laptops; GPU options are shown only when FFmpeg can initialize the encoder.
 - Batch Frame Studio: sequential extraction for up to 25 video URLs, with shared FPS/time-range/format settings and cancellation.
 - YouTube Thumbnail Downloader with three previewable variants: max resolution (`maxresdefault`), standard (`sddefault`), and high quality (`hqdefault`); download each available image directly.
 - Structured batch ZIP: numbered per-video folders, full-resolution frames, per-video `metadata.json`, plus batch `manifest.json` and `manifest.csv`; aggregate cap of 50,000 frames per batch.
@@ -76,6 +78,7 @@ These dependencies are installed on the user's machine by the installer or via `
 - Frame export is limited by source duration, FPS, available storage, and the app's built-in frame-count safeguards.
 - Thumbnail Downloader currently supports YouTube video URLs and only offers image variants that YouTube actually serves; some videos do not have all three sizes.
 - Some trim / merge / format combinations require FFmpeg.
+- Video compression is CPU-intensive. H.265 software encoding can take substantially longer than H.264, especially on low-power processors. Target-size modes use two-pass encoding and produce an approximate target size; container overhead and audio encoding mean byte-exact sizes cannot be guaranteed. GPU encoders are offered only when detected and successfully initialized by the installed FFmpeg build.
 
 ## Project status
 
