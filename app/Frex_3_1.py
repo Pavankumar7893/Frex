@@ -1801,7 +1801,7 @@ class FrexService:
                 raise FileExistsError("The output file appeared before encoding started.")
             is_two_pass = method in ("percentage", "megabytes")
             common = [self.ffmpeg, "-hide_banner", "-y", "-i", str(source),
-                      "-map", "0:v:0", "-map", "0:a?", "-map_metadata", "0", "-map_chapters", "0"]
+                      "-map", "0:v:0", "-map", "0:a:0?", "-map_metadata", "0", "-map_chapters", "0"]
             if scale_filter:
                 common += ["-vf", scale_filter]
             if compatibility:
@@ -1811,6 +1811,8 @@ class FrexService:
                 common += ["-preset", preset]
             if encoder == "libx264":
                 common += ["-profile:v", "baseline" if compatibility else "high"]
+            elif encoder.startswith("h264_") and compatibility:
+                common += ["-profile:v", "baseline"]
             if encoder == "libx265":
                 common += ["-tag:v", "hvc1"]
             if is_two_pass:
