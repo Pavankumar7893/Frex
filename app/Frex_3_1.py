@@ -44,8 +44,8 @@ MAX_FRAME_BATCH_URLS = 25
 MAX_FRAME_BATCH_TOTAL = 50000
 MAX_BODY = 2 * 1024 * 1024
 MAX_FRAME_PREVIEWS = 12000
-MAX_FRAME_EXPORT = 25000
 MAX_SELECTED_FRAME_EXPORT = 2000
+# Full-range exports have no configured frame-count ceiling; disk space and runtime are the practical limits.
 FRAME_CACHE_TTL_SECONDS = 48 * 60 * 60
 FRAME_PAGE_SIZE = 72
 FRAME_CACHE = APPDATA / "frame_cache"
@@ -334,11 +334,6 @@ class FrexService:
         image_format = str(image_format).lower()
         if image_format not in ("png", "jpg"):
             raise ValueError("Choose PNG or JPG output.")
-        if direct_export and estimate > MAX_FRAME_EXPORT:
-            raise ValueError(
-                f"This direct export would create about {estimate:,} frames. The direct ZIP limit is {MAX_FRAME_EXPORT:,}. "
-                "Lower the FPS or narrow the time range."
-            )
         if not direct_export and estimate > MAX_FRAME_PREVIEWS:
             raise ValueError(
                 f"That FPS/range would create about {estimate:,} preview frames. The preview limit is {MAX_FRAME_PREVIEWS:,}. "
@@ -578,7 +573,8 @@ class FrexService:
             fps = float(session["fps"])
             duration = float(session["end"] - session["start"])
             if export_all:
-                selected = list(range(total_available))
+                # A range avoids allocating one Python integer per frame for very large exports.
+                selected = range(total_available)
             else:
                 try:
                     selected = sorted({int(x) for x in indices})
@@ -588,8 +584,6 @@ class FrexService:
                     raise ValueError("Select at least one frame first.")
                 if selected[0] < 0 or selected[-1] >= total_available:
                     raise ValueError("One or more selected frames are out of range.")
-            if len(selected) > MAX_FRAME_EXPORT:
-                raise ValueError(f"The export limit is {MAX_FRAME_EXPORT:,} frames per ZIP. Reduce FPS or narrow the time range.")
             if not export_all and len(selected) > MAX_SELECTED_FRAME_EXPORT:
                 raise ValueError(
                     f"A custom selection is limited to {MAX_SELECTED_FRAME_EXPORT:,} frames. "
@@ -693,10 +687,9 @@ class FrexService:
             if job.get("direct_export"):
                 if not outputs:
                     raise RuntimeError("FFmpeg did not produce any frames for the direct export.")
-                if len(outputs) > MAX_FRAME_EXPORT:
-                    raise RuntimeError(f"FFmpeg produced {len(outputs):,} frames, above the {MAX_FRAME_EXPORT:,}-frame ZIP limit.")
                 # Direct mode does not have preview indexes; use the actual rendered count.
-                selected = list(range(len(outputs)))
+                # range() avoids allocating a second large index list.
+                selected = range(len(outputs))
             elif len(outputs) != len(selected):
                 raise RuntimeError(f"Expected {len(selected)} frame(s), but FFmpeg produced {len(outputs)}. Try again or reduce FPS.")
             with zipfile.ZipFile(export_dir / "frames.zip", "w", compression=zipfile.ZIP_STORED) as archive:
