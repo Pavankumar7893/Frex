@@ -142,7 +142,7 @@ body:before{content:"";position:fixed;inset:-25%;z-index:-2;pointer-events:none;
           <div style="height:1px;background:var(--line);margin:16px 0"></div>
           <div class="field-label">WHAT YOU GET</div>
           <div class="muted" style="font-size:11px;line-height:1.9;margin-top:8px">✓ Select / deselect individual frames<br>✓ Select all, clear, or invert selection<br>✓ Full-video extraction at selected FPS<br>✓ PNG lossless or high-quality JPG<br>✓ Timestamped ZIP export</div>
-          <div class="muted mono" style="font-size:9px;margin-top:14px;color:#b2b6bd">PREVIEW · 12,000 MAX<br>DIRECT ZIP · NO FIXED FRAME CAP</div>
+          <div class="muted mono" style="font-size:9px;margin-top:14px;color:#b2b6bd">PREVIEW · 12,000 MAX<br>ALL EXPORT MODES · NO FIXED FRAME CAP</div>
         </aside>
       </div>
     </section>
@@ -153,7 +153,7 @@ body:before{content:"";position:fixed;inset:-25%;z-index:-2;pointer-events:none;
       <div class="field-label">VIDEO LINKS · ONE URL PER LINE</div>
       <textarea class="batch-frame-textarea" id="batchFrameUrls" spellcheck="false" placeholder="https://www.youtube.com/watch?v=…&#10;https://www.youtube.com/watch?v=…&#10;https://www.youtube.com/watch?v=…"></textarea>
       <div class="batch-frame-actions"><button class="btn btn-lime" id="startFrameBatch">START BATCH EXTRACTION ↗</button><button class="btn btn-quiet" id="pasteFrameBatch">PASTE LINKS</button><button class="btn btn-quiet" id="clearFrameBatch">CLEAR</button><button class="btn btn-dark" id="cancelFrameBatch" disabled>CANCEL BATCH</button><span class="muted mono" style="font-size:9px">Uses the FPS, range and format above · runs videos sequentially</span></div>
-      <p class="frame-note">Frex processes one source at a time to keep CPU, memory and FFmpeg usage predictable. The final ZIP has a numbered folder for each video, full-resolution images, a metadata.json file per video, and batch-level manifest.json + manifest.csv. The batch safety cap is 50,000 total exported frames; split larger jobs into smaller batches.</p>
+      <p class="frame-note">Frex processes one source at a time to keep CPU, memory and FFmpeg usage predictable. The final ZIP has a numbered folder for each video, full-resolution images, a metadata.json file per video, and batch-level manifest.json + manifest.csv. there is no fixed frame-count cap; available disk space, processing time and system capability are the practical limits.</p>
       <div class="batch-frame-results" id="batchFrameResults">
         <div class="batch-frame-header"><span id="batchFrameSummary">BATCH QUEUED</span><span id="batchFramePercent">0%</span></div>
         <div class="progress-track"><div class="progress-fill" id="batchFrameProgressFill"></div></div>
@@ -307,7 +307,7 @@ async function exportFrames(allFrames){
  if(selectedAll)allFrames=true;
  const count=allFrames?Number(state.frameSession.frame_count||0):indices.length;
  
- if(!allFrames&&count>2000)return toast('Custom selection exports are limited to 2,000 frames. Use Extract Full Video if every frame is selected.',true);
+ 
  const message=allFrames?`Export all ${count.toLocaleString()} frames from this video range at ${state.frameSession.fps} FPS?`:`Export ${count.toLocaleString()} selected frame(s) at full source resolution?`;
  if(!confirm(message))return;
  state.frameBusy=true;frameSetSelectionUI();$('cancelFrames').disabled=false;
