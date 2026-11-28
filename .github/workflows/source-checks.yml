@@ -20,7 +20,11 @@ jobs:
         with:
           node-version: "22"
       - name: Compile Python source
-        run: python -m py_compile app/Frex_3_1.py
+        run: python -m py_compile app/Frex_3_1.py tests/test_compression.py
+      - name: Install compression test dependency
+        run: python -m pip install --upgrade imageio-ffmpeg yt-dlp
+      - name: Run CPU compression integration test
+        run: python -m unittest tests.test_compression -v
       - name: Check inline JavaScript syntax
         shell: pwsh
         run: |
