@@ -31,6 +31,39 @@ body:before{content:"";position:fixed;inset:-25%;z-index:-2;pointer-events:none;
 @media(max-width:980px){.app{padding:0 22px 70px}.topbar{margin:0 -22px;padding:0 22px}.hero{padding-top:42px}.section-grid{grid-template-columns:1fr}.right-stack{grid-row:2}.orbit-wrap{max-width:330px}.card{padding:22px}}
 @media(max-width:600px){.app{padding:0 14px 60px}.topbar{height:65px;margin:0 -14px;padding:0 14px}.brand-mark{width:37px;height:37px}.brand-name{font-size:14px}.brand-sub{font-size:8px}.top-right .local-pill{display:none}.top-btn{font-size:9px;padding:8px 10px}.hero{padding:34px 0 27px}.hero-title{font-size:clamp(54px,16vw,88px);margin:20px 0 13px}.hero-copy{font-size:12px}.hero-meta{gap:5px}.hero-meta .micro-pill{font-size:8px;padding:6px 8px}.section-grid{gap:15px}.stack{gap:15px}.card{padding:17px;border-radius:19px}.card-title{font-size:15px}.card-tag{font-size:8px;padding:6px 8px}.url-entry-wrap{padding:8px 8px 8px 12px}.url-entry{font-size:12px}.url-entry-wrap .btn{padding:9px 11px;font-size:10px}.url-actions .btn{flex:1}.preview-thumb{width:95px}.orbit-wrap{max-width:300px}.orbit-node{transform:rotate(var(--angle)) translateY(-112px) rotate(calc(var(--angle)*-1));width:68px;margin-left:-34px}.orbit-node:hover,.orbit-node.active{transform:rotate(var(--angle)) translateY(-112px) rotate(calc(var(--angle)*-1)) scale(1.05)}.orbit-core{width:86px;height:86px}.orbit-core strong{font-size:17px}.trim-time-row{gap:7px}.download-cta{font-size:15px;min-height:59px}.format-grid{gap:6px}.format-btn{padding:10px 5px;font-size:9px}.footer{font-size:8px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+.compress-workspace{display:none;grid-template-columns:minmax(0,1fr);gap:20px}.compress-workspace.active{display:grid}
+.compress-layout{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(250px,.65fr);gap:22px;align-items:start}
+.compress-main{min-width:0}.compress-block{padding:17px 0;border-bottom:1px solid var(--line)}.compress-block:first-child{padding-top:0}
+.compress-file-row{display:flex;align-items:center;gap:13px;margin-top:10px;padding:13px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.025)}
+.compress-file-icon{width:42px;height:42px;flex:0 0 42px;border-radius:11px;background:rgba(226,255,110,.1);color:var(--lime);display:grid;place-items:center;font-size:17px}
+.compress-file-info{min-width:0;flex:1}.compress-file-info strong{display:block;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.compress-file-info span{display:block;color:var(--muted);font:9px 'JetBrains Mono',monospace;margin-top:5px;line-height:1.5}
+.compress-path{font:9px 'JetBrains Mono',monospace;color:#777e88;overflow-wrap:anywhere;margin:9px 3px 0}
+.compress-two-col{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-top:14px}
+.compress-help{display:block;color:#8e949e;font-size:10px;line-height:1.55;margin-top:7px}
+.compress-method-panel{margin-top:18px;padding:15px;border:1px solid rgba(226,255,110,.16);border-radius:13px;background:rgba(226,255,110,.035)}
+.compress-method-panel[hidden]{display:none}
+.compress-setting-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:9px}.compress-setting-head label{font:9px 'JetBrains Mono',monospace;letter-spacing:.12em;color:#c7cbd0}.compress-unit{font:10px 'JetBrains Mono',monospace;color:var(--lime)}
+.compress-inline{display:flex;align-items:center;gap:12px}.compress-inline .frame-input{max-width:190px}.compress-hint{font-size:10px;color:#a4a9b1}
+.compress-range{width:100%;accent-color:var(--lime)}.compress-range-labels{display:flex;justify-content:space-between;gap:8px;color:#858b94;font:8px 'JetBrains Mono',monospace;margin-top:4px}
+.compress-advanced{margin:16px 0;border:1px solid var(--line);border-radius:13px;background:rgba(255,255,255,.02)}
+.compress-advanced summary{cursor:pointer;padding:14px 15px;font:10px 'JetBrains Mono',monospace;letter-spacing:.1em;color:#cbd0d5}
+.compress-advanced-grid{padding:0 15px 15px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.compress-check{grid-column:1/-1;display:flex;align-items:flex-start;gap:10px;padding:13px;border:1px solid var(--line);border-radius:11px;cursor:pointer}
+.compress-check input{accent-color:var(--lime);margin-top:3px}.compress-check strong{display:block;font-size:11px}.compress-check small{display:block;color:#8e949e;font-size:10px;line-height:1.5;margin-top:4px}
+.compress-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:18px}
+.compress-side{padding:18px;border:1px solid var(--line);border-radius:16px;background:rgba(0,0,0,.2);position:sticky;top:95px}
+.compress-side-title{font:700 22px Syne;color:var(--lime);margin-top:12px}
+.compress-side p{font-size:10px;color:#9da3ad;line-height:1.65;margin:8px 0 0}
+.compress-divider{height:1px;background:var(--line);margin:17px 0}
+.compress-stat{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:11px}.compress-stat span{font:8px 'JetBrains Mono',monospace;color:#89909a}.compress-stat strong{font:11px 'JetBrains Mono',monospace;color:#e5e8e8;text-align:right}
+.compress-tip{padding:12px;border-radius:11px;background:rgba(226,255,110,.055);border:1px solid rgba(226,255,110,.13)}
+.compress-tip strong{font:9px 'JetBrains Mono',monospace;color:var(--lime);letter-spacing:.1em}.compress-tip p{margin-top:7px}
+.compress-progress{display:none;margin-top:18px;padding:16px;border:1px solid rgba(226,255,110,.2);border-radius:14px;background:rgba(226,255,110,.04)}
+.compress-progress.show{display:block}.compress-result{font:10px/1.7 'JetBrains Mono',monospace;color:#c5cbd0;margin-top:10px;overflow-wrap:anywhere}
+.compress-download{display:none;margin-top:12px}.compress-download.show{display:inline-flex}
+@media(max-width:900px){.compress-layout{grid-template-columns:1fr}.compress-side{position:static}.compress-two-col{grid-template-columns:1fr}}
+@media(max-width:600px){.workspace-nav{grid-template-columns:repeat(3,1fr)}.workspace-tab{font-size:8px;padding:10px 5px}.compress-file-row{flex-wrap:wrap}.compress-file-info{min-width:calc(100% - 60px)}.compress-file-row .btn{width:100%}.compress-advanced-grid{grid-template-columns:1fr}.compress-check{grid-column:auto}.compress-inline{align-items:flex-start;flex-direction:column}.compress-inline .frame-input{max-width:none}.compress-actions .btn{flex:1}}
 </style>
 </head>
 <body>
@@ -50,6 +83,7 @@ body:before{content:"";position:fixed;inset:-25%;z-index:-2;pointer-events:none;
   <nav class="workspace-nav" aria-label="Frex workspaces">
     <button class="workspace-tab active" id="downloadTab" type="button">VIDEO DOWNLOADER</button>
     <button class="workspace-tab" id="framesTab" type="button">FRAME EXTRACTOR</button>
+    <button class="workspace-tab" id="compressTab" type="button">VIDEO COMPRESSOR</button>
   </nav>
 
   <main class="section-grid" id="downloadWorkspace">
@@ -170,6 +204,104 @@ body:before{content:"";position:fixed;inset:-25%;z-index:-2;pointer-events:none;
       <div class="frame-grid" id="frameGrid"></div>
       <div class="frame-pager" id="framePager" style="display:none"><button class="btn btn-quiet btn-small" id="framePrevPage">← PREVIOUS</button><span class="frame-count" id="framePageLabel">PAGE 1</span><button class="btn btn-quiet btn-small" id="frameNextPage">NEXT →</button></div>
       <div class="frame-export-panel" id="frameExportPanel"><div class="progress-head"><span id="frameExportText">Exporting frames…</span><span id="frameExportPercent">0%</span></div><div class="progress-track"><div class="progress-fill" id="frameExportFill"></div></div><div class="frame-export-status" id="frameExportStatus"></div><a class="btn btn-lime frame-export-link" id="frameZipLink" href="#">DOWNLOAD FRAME ZIP ↓</a></div>
+    </section>
+  </main>
+  <main class="compress-workspace" id="compressWorkspace">
+    <section class="card compress-card">
+      <div class="card-head">
+        <div class="head-left"><span class="step" style="color:var(--lime)">03</span><div><div class="card-title">VIDEO SIZE STUDIO</div><div class="card-kicker">LOCAL ENCODING · CONTROL THE SIZE · KEEP THE QUALITY</div></div></div>
+        <span class="card-tag" id="compressEngineTag">CHECKING ENCODERS…</span>
+      </div>
+      <div class="compress-layout">
+        <div class="compress-main">
+          <div class="compress-block">
+            <div class="field-label">01 · SOURCE VIDEO</div>
+            <div class="compress-file-row">
+              <div class="compress-file-icon">▶</div>
+              <div class="compress-file-info"><strong id="compressInputName">No video selected</strong><span id="compressInputMeta">Choose a local video file to inspect its size, duration and resolution.</span></div>
+              <button class="btn btn-dark" id="compressPickInput">CHOOSE VIDEO ↗</button>
+            </div>
+            <div class="compress-path" id="compressInputPath">SOURCE · NOT SELECTED</div>
+          </div>
+
+          <div class="compress-block">
+            <div class="field-label">02 · COMPRESSION PROFILE</div>
+            <div class="compress-two-col">
+              <div class="frame-field"><label for="compressCodec">VIDEO CODEC</label><select class="frame-select" id="compressCodec"><option value="h264_cpu">H.264 · CPU (recommended)</option></select><span class="compress-help" id="compressCodecHelp">H.264 offers broad compatibility and is the safest starting point for a modest CPU.</span></div>
+              <div class="frame-field"><label for="compressMethod">COMPRESSION METHOD</label><select class="frame-select" id="compressMethod"><option value="percentage">Target file size · Percentage</option><option value="megabytes">Target file size · MB</option><option value="quality">Target video quality</option><option value="resolution">Target video resolution</option><option value="max_bitrate">Target max bitrate</option></select><span class="compress-help">Choose a size target when storage matters, or quality when visual fidelity matters more.</span></div>
+            </div>
+            <div class="compress-method-panel" id="compressPercentagePanel">
+              <div class="compress-setting-head"><label for="compressPercent">SELECT TARGET SIZE</label><span class="compress-unit">%</span></div>
+              <div class="compress-inline"><input class="frame-input" id="compressPercent" type="number" min="1" max="10000" step="1" value="25"><span class="compress-hint" id="compressPercentHint">25% of the original file size</span></div>
+              <p class="compress-help">Example: a 100 MB source at 25% targets approximately 25 MB. Two-pass encoding estimates the required video bitrate; final size can vary slightly.</p>
+            </div>
+            <div class="compress-method-panel" id="compressMegabytesPanel" hidden>
+              <div class="compress-setting-head"><label for="compressMegabytes">TARGET FILE SIZE</label><span class="compress-unit">MB</span></div>
+              <div class="compress-inline"><input class="frame-input" id="compressMegabytes" type="number" min="0.1" max="50000" step="0.1" value="25"><span class="compress-hint">Approximate final MP4 size</span></div>
+              <p class="compress-help">Two-pass encoding targets an average bitrate. Audio and container overhead are included in the bitrate estimate, so the final size is approximate—not byte-exact.</p>
+            </div>
+            <div class="compress-method-panel" id="compressQualityPanel" hidden>
+              <div class="compress-setting-head"><label for="compressQuality">VIDEO QUALITY · CRF</label><span class="compress-unit" id="compressQualityValue">26</span></div>
+              <input class="compress-range" id="compressQuality" type="range" min="18" max="35" step="1" value="26">
+              <div class="compress-range-labels"><span>HIGHER QUALITY · LARGER FILE</span><span>SMALLER FILE · LOWER QUALITY</span></div>
+              <p class="compress-help">CRF is quality-based, not size-based. Start around 23–26 for H.264. Higher numbers compress more but lose more detail.</p>
+            </div>
+            <div class="compress-method-panel" id="compressResolutionPanel" hidden>
+              <div class="compress-setting-head"><label for="compressResolution">MAXIMUM OUTPUT RESOLUTION</label><span class="compress-unit">PIXELS</span></div>
+              <select class="frame-select" id="compressResolution"><option value="1080">1080p · Full HD</option><option value="720" selected>720p · HD</option><option value="480">480p · SD</option><option value="360">360p · Low bandwidth</option></select>
+              <p class="compress-help">Downscales only when the source is larger. Aspect ratio is preserved; smaller source videos are never upscaled.</p>
+            </div>
+            <div class="compress-method-panel" id="compressMaxBitratePanel" hidden>
+              <div class="compress-setting-head"><label for="compressMaxBitrate">MAXIMUM VIDEO BITRATE</label><span class="compress-unit">MBPS</span></div>
+              <div class="compress-inline"><input class="frame-input" id="compressMaxBitrate" type="number" min="0.1" max="100" step="0.1" value="4"><span class="compress-hint">Peak video bitrate ceiling</span></div>
+              <p class="compress-help">Uses constrained variable bitrate. This is a ceiling, not a promise that every second will use that bitrate.</p>
+            </div>
+          </div>
+
+          <details class="compress-advanced">
+            <summary>ADVANCED SETTINGS (OPTIONAL)</summary>
+            <div class="compress-advanced-grid">
+              <div class="frame-field"><label for="compressThreads">CPU THREADS · LOWER = LESS CPU LOAD</label><select class="frame-select" id="compressThreads"><option value="1">1 · Quietest</option><option value="2">2 · Light</option><option value="3" selected>3 · Balanced (recommended)</option><option value="4">4 · Faster</option></select></div>
+              <div class="frame-field"><label for="compressAudio">AUDIO BITRATE</label><select class="frame-select" id="compressAudio"><option value="96">96 kbps · Smaller</option><option value="128" selected>128 kbps · Balanced</option><option value="160">160 kbps · Higher</option><option value="192">192 kbps · High</option></select></div>
+              <label class="compress-check"><input type="checkbox" id="compressCompatibility"><span><strong>Make video compatible with older devices?</strong><small>H.264, 8-bit 4:2:0 video, AAC-LC audio and fast-start MP4. This may reduce compression efficiency.</small></span></label>
+            </div>
+          </details>
+
+          <div class="compress-block">
+            <div class="field-label">03 · OUTPUT DESTINATION</div>
+            <div class="compress-file-row compress-output-row">
+              <div class="compress-file-icon">↓</div>
+              <div class="compress-file-info"><strong id="compressOutputName">No output destination selected</strong><span id="compressOutputMeta">Choose where Frex should save the compressed MP4.</span></div>
+              <button class="btn btn-dark" id="compressPickOutput" disabled>CHOOSE SAVE LOCATION</button>
+            </div>
+            <div class="compress-path" id="compressOutputPath">OUTPUT · NOT SELECTED</div>
+          </div>
+
+          <div class="compress-actions">
+            <button class="btn btn-lime" id="compressStart" disabled>COMPRESS VIDEO ↗</button>
+            <button class="btn btn-dark" id="compressCancel" disabled>CANCEL ENCODING</button>
+            <span class="muted mono" style="font-size:9px">LOCAL CPU ENCODING · KEEP FREX OPEN</span>
+          </div>
+          <div class="compress-progress" id="compressProgress">
+            <div class="progress-head"><span id="compressProgressText">Preparing encoder…</span><span id="compressProgressPercent">0%</span></div>
+            <div class="progress-track"><div class="progress-fill" id="compressProgressFill"></div></div>
+            <div class="compress-result" id="compressResult"></div>
+            <a class="btn btn-lime compress-download" id="compressDownload" href="#">DOWNLOAD COMPRESSED VIDEO ↓</a>
+          </div>
+        </div>
+        <aside class="compress-side">
+          <div class="field-label">ENCODER STATUS</div>
+          <div class="compress-side-title" id="compressModeTitle">CPU-FIRST MODE</div>
+          <p id="compressCapabilityText">Checking the FFmpeg encoders installed on this computer…</p>
+          <div class="compress-divider"></div>
+          <div class="field-label">SOURCE SUMMARY</div>
+          <div class="compress-stat"><span>ORIGINAL SIZE</span><strong id="compressSourceSize">—</strong></div>
+          <div class="compress-stat"><span>DURATION</span><strong id="compressSourceDuration">—</strong></div>
+          <div class="compress-stat"><span>RESOLUTION</span><strong id="compressSourceResolution">—</strong></div>
+          <div class="compress-divider"></div>
+          <div class="compress-tip"><strong>THE HONEST TRADE-OFF</strong><p>H.265 can create smaller files at similar visual quality, but CPU encoding is considerably slower. On your kind of laptop, H.264 with 3 threads is the sensible default. Avoid AV1 CPU encoding here.</p></div>
+        </aside>
+      </div>
     </section>
   </main>
   <footer class="footer"><span>FREX 3.2.0 · LOCAL-FIRST DOWNLOADER + BATCH FRAME STUDIO</span><span>DESIGNED TO FEEL GOOD. BUILT TO DO THE WORK.</span><span id="toolStatus">Yt-dlp: checking</span></footer>
