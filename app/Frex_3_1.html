@@ -297,7 +297,7 @@ async function generateFrames(directExport=false){
   }
   ensureFramePolling();await pollFrameSession();toast(directExport?'Direct frame export started.':'Frame job started.');
  }catch(e){state.frameBusy=false;$('frameEmpty').textContent=e.message;toast(e.message,true);$('cancelFrames').disabled=true;frameSetSelectionUI()}
- finally{$('generateFrames').disabled=state.frameBatchBusy;$('directDownloadFrames').disabled=state.frameBatchBusy;$('generateFrames').textContent='GENERATE PREVIEW ↗'}
+ finally{$('generateFrames').disabled=frameAnyBusy();$('directDownloadFrames').disabled=frameAnyBusy();$('generateFrames').textContent='GENERATE PREVIEW ↗'}
 }
 async function exportFrames(allFrames){
  if(!state.frameSession||frameAnyBusy())return;
