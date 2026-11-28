@@ -131,7 +131,7 @@ body:before{content:"";position:fixed;inset:-25%;z-index:-2;pointer-events:none;
             <div class="frame-field"><label for="frameEnd">END · OPTIONAL</label><input class="frame-input" id="frameEnd" placeholder="Full video" inputmode="numeric"></div>
           </div>
           <div class="frame-controls"><button class="btn btn-lime" id="generateFrames">GENERATE PREVIEW ↗</button><button class="btn btn-dark" id="directDownloadFrames">DIRECT DOWNLOAD ZIP ↓</button><button class="btn btn-quiet" id="cancelFrames" disabled>CANCEL TASK</button><span class="muted mono" style="font-size:9px">0.1–30 FPS · blank range = full video</span></div>
-          <p class="frame-note">Frex temporarily downloads the best available video stream, then generates lightweight 480px preview thumbnails. PNG/JPG exports are re-rendered from the source at its original dimensions. Keep enough free disk space for the source video and exported ZIP. Direct Download skips previews and allows up to 25,000 frames per ZIP; Preview mode is capped at 12,000. If the requested FPS exceeds the source frame rate, Frex uses the source rate rather than duplicating frames. Only content your account is authorized to access can be processed; Frex does not bypass DRM or access controls.</p>
+          <p class="frame-note">Frex temporarily downloads the best available video stream, then generates lightweight 480px preview thumbnails. PNG/JPG exports are re-rendered from the source at its original dimensions. Keep enough free disk space for the source video and exported ZIP. Direct Download skips previews and has no fixed frame-count ceiling; actual limits are available disk space, processing time and system capability. Preview mode remains capped at 12,000. If the requested FPS exceeds the source frame rate, Frex uses the source rate rather than duplicating frames. Only content your account is authorized to access can be processed; Frex does not bypass DRM or access controls.</p>
           <div class="frame-summary" id="frameSummary"><img id="frameSourceThumb" alt="Video thumbnail"><div style="min-width:0"><div class="preview-title" id="frameSourceTitle">Source ready</div><div class="preview-meta" id="frameSourceMeta"></div></div></div>
           <div class="frame-progress" id="frameProgress"><div class="progress-head"><span id="frameProgressText">Preparing source…</span><span id="frameProgressPercent">0%</span></div><div class="progress-track"><div class="progress-fill" id="frameProgressFill"></div></div></div>
         </div>
@@ -142,7 +142,7 @@ body:before{content:"";position:fixed;inset:-25%;z-index:-2;pointer-events:none;
           <div style="height:1px;background:var(--line);margin:16px 0"></div>
           <div class="field-label">WHAT YOU GET</div>
           <div class="muted" style="font-size:11px;line-height:1.9;margin-top:8px">✓ Select / deselect individual frames<br>✓ Select all, clear, or invert selection<br>✓ Full-video extraction at selected FPS<br>✓ PNG lossless or high-quality JPG<br>✓ Timestamped ZIP export</div>
-          <div class="muted mono" style="font-size:9px;margin-top:14px;color:#b2b6bd">PREVIEW · 12,000 MAX<br>DIRECT ZIP · 25,000 MAX</div>
+          <div class="muted mono" style="font-size:9px;margin-top:14px;color:#b2b6bd">PREVIEW · 12,000 MAX<br>DIRECT ZIP · NO FIXED FRAME CAP</div>
         </aside>
       </div>
     </section>
@@ -306,7 +306,7 @@ async function exportFrames(allFrames){
  if(!allFrames&&!indices.length)return toast('Select at least one frame.',true);
  if(selectedAll)allFrames=true;
  const count=allFrames?Number(state.frameSession.frame_count||0):indices.length;
- if(count>25000)return toast('Export exceeds the 25,000-frame ZIP limit.',true);
+ 
  if(!allFrames&&count>2000)return toast('Custom selection exports are limited to 2,000 frames. Use Extract Full Video if every frame is selected.',true);
  const message=allFrames?`Export all ${count.toLocaleString()} frames from this video range at ${state.frameSession.fps} FPS?`:`Export ${count.toLocaleString()} selected frame(s) at full source resolution?`;
  if(!confirm(message))return;
