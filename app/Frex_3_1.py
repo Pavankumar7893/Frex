@@ -44,7 +44,7 @@ MAX_FRAME_BATCH_URLS = 25
 MAX_FRAME_BATCH_TOTAL = 50000
 MAX_BODY = 2 * 1024 * 1024
 MAX_FRAME_PREVIEWS = 12000
-MAX_FRAME_EXPORT = 12000
+MAX_FRAME_EXPORT = 25000
 MAX_SELECTED_FRAME_EXPORT = 2000
 FRAME_CACHE_TTL_SECONDS = 48 * 60 * 60
 FRAME_PAGE_SIZE = 72
@@ -286,7 +286,7 @@ class FrexService:
         except OSError:
             pass
 
-    def start_frame_preview(self, url: str, fps_value, start_value="", end_value="", options=None, allow_batch=False) -> dict:
+    def start_frame_preview(self, url: str, fps_value, start_value="", end_value="", options=None, allow_batch=False, direct_export=False, image_format="png") -> dict:
         """Download an authorized source video, then create a paged low-res frame contact sheet cache."""
         options = options or {}
         if not valid_url(url):
@@ -300,7 +300,7 @@ class FrexService:
                 raise RuntimeError("Finish or cancel the current download queue before starting frame extraction.")
             if not allow_batch and any(b.get("status") in ("queued", "processing", "packaging") for b in self.frame_batches.values()):
                 raise RuntimeError("A batch frame extraction is already running.")
-            if any(s.get("status") in ("downloading", "previewing") for s in self.frame_sessions.values()):
+            if any(s.get("status") in ("downloading", "previewing") or (s.get("export") or {}).get("status") == "exporting" for s in self.frame_sessions.values()):
                 raise RuntimeError("A frame extraction task is already running.")
 
         try:
@@ -331,16 +331,26 @@ class FrexService:
             fps = min(fps, source_fps)
         fps = max(0.1, fps)
         estimate = max(1, int(math.ceil((end - start) * fps)))
-        if estimate > MAX_FRAME_PREVIEWS:
+        image_format = str(image_format).lower()
+        if image_format not in ("png", "jpg"):
+            raise ValueError("Choose PNG or JPG output.")
+        if direct_export and estimate > MAX_FRAME_EXPORT:
+            raise ValueError(
+                f"This direct export would create about {estimate:,} frames. The direct ZIP limit is {MAX_FRAME_EXPORT:,}. "
+                "Lower the FPS or narrow the time range."
+            )
+        if not direct_export and estimate > MAX_FRAME_PREVIEWS:
             raise ValueError(
                 f"That FPS/range would create about {estimate:,} preview frames. The preview limit is {MAX_FRAME_PREVIEWS:,}. "
-                "Lower the FPS or narrow the time range."
+                "Lower the FPS or narrow the time range, or use Direct Download."
             )
 
         session_id = uuid.uuid4().hex
         session_dir = FRAME_CACHE / session_id
         preview_dir = session_dir / "preview"
-        preview_dir.mkdir(parents=True, exist_ok=True)
+        session_dir.mkdir(parents=True, exist_ok=True)
+        if not direct_export:
+            preview_dir.mkdir(parents=True, exist_ok=True)
         session = {
             "id": session_id, "url": url, "title": info.get("title") or "YouTube video",
             "uploader": info.get("uploader") or "Unknown channel", "thumbnail": info.get("thumbnail"),
@@ -352,10 +362,12 @@ class FrexService:
             "progress": 0.0, "detail": "Starting source download…", "error": "",
             "source_path": "", "session_dir": str(session_dir), "preview_dir": str(preview_dir),
             "export": None, "created_at": time.time(), "auth_args": list(auth_args),
+            "direct_export": bool(direct_export), "image_format": image_format,
         }
         with self.lock:
             self.frame_sessions[session_id] = session
-        self.log(f"Frame extractor started · {fps:g} fps · estimated {estimate:,} frames")
+        mode_label = "direct export" if direct_export else "preview extraction"
+        self.log(f"Frame extractor started · {fps:g} fps · estimated {estimate:,} frames · {mode_label}")
         threading.Thread(target=self._prepare_frame_session, args=(session_id,), daemon=True).start()
         return {k: session[k] for k in ("id", "title", "uploader", "thumbnail", "duration", "duration_text", "fps", "requested_fps", "source_fps", "width", "height", "start", "end", "estimated_frames", "status", "detail", "progress")}
 
@@ -418,6 +430,19 @@ class FrexService:
             if not sources:
                 raise RuntimeError("yt-dlp finished but Frex could not find the downloaded video file.")
             source_path = max(sources, key=lambda p: p.stat().st_size)
+            if session.get("direct_export"):
+                # Reuse the full-resolution ZIP renderer without creating preview images.
+                self._frame_update(
+                    session_id, source_path=str(source_path), status="ready", stage="direct_export",
+                    progress=62.0, frame_count=int(session["estimated_frames"]),
+                    detail="Source downloaded · rendering frames directly into ZIP…"
+                )
+                export = self.start_frame_export(
+                    session_id, [], True, session.get("image_format", "png")
+                )
+                self.log(f"Direct frame export queued · {export['frame_count']:,} frames")
+                return
+
             self._frame_update(session_id, source_path=str(source_path), stage="preview", status="previewing", progress=62.0,
                                detail="Generating frame previews…")
 
@@ -436,8 +461,12 @@ class FrexService:
             with self.lock:
                 self.frame_process = proc
             assert proc.stdout is not None
+            ffmpeg_tail = []
             for raw in proc.stdout:
                 line = raw.strip()
+                if line and not line.startswith(("frame=", "fps=", "stream_")) and "=" not in line:
+                    ffmpeg_tail.append(line[:500])
+                    ffmpeg_tail[:] = ffmpeg_tail[-10:]
                 if line.startswith("out_time_ms="):
                     try:
                         out_sec = int(line.split("=", 1)[1]) / 1_000_000
@@ -459,7 +488,8 @@ class FrexService:
                 self._frame_update(session_id, status="cancelled", stage="cancelled", detail="Frame extraction cancelled.")
                 return
             if code != 0:
-                raise RuntimeError("FFmpeg could not generate frame previews. The source may use an unsupported codec or container.")
+                detail = "\n".join(ffmpeg_tail[-6:]) or f"No FFmpeg diagnostic was returned (exit code {code})."
+                raise RuntimeError(f"FFmpeg could not generate frame previews (exit code {code}): {detail}")
 
             count = len(list(preview_dir.glob("frame_*.jpg")))
             if count <= 0:
@@ -486,6 +516,7 @@ class FrexService:
                 "source_fps": session.get("source_fps"), "width": session.get("width"), "height": session.get("height"),
                 "thumbnail": session.get("thumbnail"), "start": session["start"], "end": session["end"],
                 "estimated_frames": session["estimated_frames"], "frame_count": session["frame_count"],
+                "direct_export": bool(session.get("direct_export")),
                 "status": session["status"], "stage": session["stage"], "progress": session["progress"],
                 "detail": session["detail"], "error": session["error"],
                 "export": {k: export.get(k) for k in ("id", "status", "progress", "detail", "error", "frame_count", "filename")}
@@ -1382,7 +1413,9 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == "/api/frames/prepare":
                 result = SERVICE.start_frame_preview(
                     str(data.get("url", "")), data.get("fps", 1),
-                    data.get("start", ""), data.get("end", ""), data.get("options") or {}
+                    data.get("start", ""), data.get("end", ""), data.get("options") or {},
+                    direct_export=bool(data.get("direct_export")),
+                    image_format=data.get("format", "png")
                 )
                 return self._send(200, {"ok": True, **result})
             if self.path == "/api/frames/export":
