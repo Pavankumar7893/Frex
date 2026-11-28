@@ -1666,9 +1666,10 @@ class FrexService:
         if not source.is_file():
             raise ValueError("Choose a valid source video.")
         meta = self.inspect_compression_source(str(source))
-        output = Path(str(options.get("output_path") or "")).expanduser()
-        if not output:
+        output_value = str(options.get("output_path") or "").strip()
+        if not output_value:
             raise ValueError("Choose where to save the compressed video.")
+        output = Path(output_value).expanduser()
         if output.suffix.lower() != ".mp4":
             output = output.with_suffix(".mp4")
         if output.resolve() == source:
@@ -1760,7 +1761,11 @@ class FrexService:
         with self.lock:
             if self.compression_job and self.compression_job.get("status") in ("queued", "running"):
                 raise RuntimeError("A compression job is already running. Finish or cancel it first.")
-            if self.running or self.frame_process:
+            if self.running or self.frame_process or any(
+                item.get("status") in ("downloading", "previewing")
+                or (item.get("export") or {}).get("status") == "exporting"
+                for item in self.frame_sessions.values()
+            ):
                 raise RuntimeError("Finish the current downloader or frame-extraction task before compressing.")
             self.compression_job = job
             self.compression_process = None
@@ -1869,10 +1874,6 @@ class FrexService:
             if is_two_pass:
                 if not run_pass(common, 1, 0):
                     return
-                second = list(common)
-                second += ["-pass", "2", "-passlogfile", str(passlog)]
-                second += audio_args + ["-movflags", "+faststart", "-progress", "pipe:1", "-nostats", str(output)]
-                # Pass 2 is run separately so the progress reader remains shared with one output.
                 if not run_pass(common, 2, 50):
                     return
             else:
@@ -2007,6 +2008,10 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/state":
             return self._send(200, SERVICE.state())
         parsed = urlparse(self.path)
+        if parsed.path == "/api/compress/state":
+            return self._send(200, SERVICE.compression_state())
+        if parsed.path == "/api/compress/capabilities":
+            return self._send(200, SERVICE.compression_capabilities())
         if parsed.path == "/api/frames/state":
             from urllib.parse import parse_qs
             q = parse_qs(parsed.query)
@@ -2066,6 +2071,15 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == "/api/inspect":
                 result = SERVICE.inspect(str(data.get("url", "")), data.get("options") or {})
                 return self._send(200, result)
+            if self.path == "/api/compress/pick-input":
+                return self._send(200, SERVICE.choose_compression_input())
+            if self.path == "/api/compress/pick-output":
+                return self._send(200, SERVICE.choose_compression_output(str(data.get("input_path") or "")))
+            if self.path == "/api/compress/start":
+                return self._send(200, SERVICE.start_compression(data))
+            if self.path == "/api/compress/cancel":
+                SERVICE.cancel_compression()
+                return self._send(200, {"ok": True})
             if self.path == "/api/start":
                 result = SERVICE.start(data.get("urls") or [], data.get("options") or {})
                 return self._send(200, {"ok": True, **result})
