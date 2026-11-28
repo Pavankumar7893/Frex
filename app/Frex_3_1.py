@@ -23,6 +23,7 @@ import threading
 import time
 import webbrowser
 import argparse
+import tempfile
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -127,6 +128,9 @@ class FrexService:
         self.frame_sessions: dict[str, dict] = {}
         self.frame_batches: dict[str, dict] = {}
         self.frame_process: subprocess.Popen | None = None
+        self.compression_process: subprocess.Popen | None = None
+        self.compression_job: dict | None = None
+        self.compression_thread: threading.Thread | None = None
         self.settings = self._load_settings()
         self.folder = self.settings.get("folder", str(DEFAULT_FOLDER))
         self.mode = self.settings.get("mode", "Video")
@@ -1523,6 +1527,407 @@ class FrexService:
         except Exception as exc:
             self.log(f"Cookie picker unavailable: {exc}")
             return None
+
+    def compression_capabilities(self) -> dict:
+        """Report encoders actually present in the selected FFmpeg build."""
+        if not self.ffmpeg:
+            return {"ffmpeg": False, "encoders": [], "gpu": [], "message": "FFmpeg is not available."}
+        try:
+            result = subprocess.run(
+                [self.ffmpeg, "-hide_banner", "-encoders"],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                timeout=20, creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+            )
+            text_out = (result.stdout or "") + "\n" + (result.stderr or "")
+        except Exception as exc:
+            return {"ffmpeg": True, "encoders": [], "gpu": [], "message": str(exc)[:300]}
+        encoders = set(re.findall(r"\b(libx264|libx265|h264_nvenc|hevc_nvenc|av1_nvenc|h264_amf|hevc_amf|av1_amf|h264_qsv|hevc_qsv|av1_qsv)\b", text_out))
+        # Encoder listing alone is not proof a GPU driver/device can initialize.
+        # Probe each hardware backend with a one-frame synthetic encode.
+        gpu = []
+        probes = [
+            ("h264_nvenc", "H.264 GPU · NVIDIA"),
+            ("hevc_nvenc", "H.265 GPU · NVIDIA"),
+            ("av1_nvenc", "AV1 GPU · NVIDIA"),
+            ("h264_amf", "H.264 GPU · AMD"),
+            ("hevc_amf", "H.265 GPU · AMD"),
+            ("av1_amf", "AV1 GPU · AMD"),
+            ("h264_qsv", "H.264 GPU · Intel"),
+            ("hevc_qsv", "H.265 GPU · Intel"),
+            ("av1_qsv", "AV1 GPU · Intel"),
+        ]
+        for encoder, label in probes:
+            if encoder not in encoders:
+                continue
+            try:
+                test = subprocess.run(
+                    [self.ffmpeg, "-hide_banner", "-loglevel", "error", "-f", "lavfi",
+                     "-i", "color=c=black:s=64x64:d=0.04", "-frames:v", "1",
+                     "-an", "-c:v", encoder, "-f", "null", "-"],
+                    capture_output=True, text=True, timeout=8,
+                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+                )
+                if test.returncode == 0:
+                    gpu.append({"id": encoder, "label": label})
+            except Exception:
+                pass
+        return {
+            "ffmpeg": True,
+            "encoders": sorted(encoders),
+            "cpu": {"h264": "libx264" in encoders, "h265": "libx265" in encoders},
+            "gpu": gpu,
+            "message": "Encoder availability is checked against this PC's FFmpeg build and hardware."
+        }
+
+    def choose_compression_input(self) -> dict:
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes("-topmost", True)
+            selected = filedialog.askopenfilename(
+                parent=root, initialdir=self.folder if Path(self.folder).exists() else str(Path.home()),
+                title="Choose a video to compress",
+                filetypes=[("Video files", "*.mp4 *.mkv *.mov *.webm *.avi *.m4v *.ts *.mts *.wmv *.flv"), ("All files", "*.*")]
+            )
+            root.destroy()
+            if not selected:
+                return {"cancelled": True}
+            info = self.inspect_compression_source(selected)
+            return {"cancelled": False, **info}
+        except Exception as exc:
+            raise RuntimeError(f"Could not open the video picker: {exc}")
+
+    def choose_compression_output(self, source_path: str) -> dict:
+        source = Path(source_path).expanduser()
+        if not source.is_file():
+            raise ValueError("Choose an existing source video first.")
+        default_name = source.stem + "_compressed.mp4"
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes("-topmost", True)
+            selected = filedialog.asksaveasfilename(
+                parent=root, initialdir=str(source.parent), initialfile=default_name,
+                title="Save compressed video as",
+                defaultextension=".mp4",
+                filetypes=[("MP4 video", "*.mp4")]
+            )
+            root.destroy()
+            return {"cancelled": not bool(selected), "path": selected or ""}
+        except Exception as exc:
+            raise RuntimeError(f"Could not open the save dialog: {exc}")
+
+    def inspect_compression_source(self, source_path: str) -> dict:
+        source = Path(source_path).expanduser().resolve()
+        if not source.is_file():
+            raise ValueError("The selected video file does not exist.")
+        if not self.ffmpeg:
+            raise RuntimeError("FFmpeg is required for video compression.")
+        if source.stat().st_size <= 0:
+            raise ValueError("The selected video file is empty.")
+        result = subprocess.run(
+            [self.ffmpeg, "-hide_banner", "-i", str(source)],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=45,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        )
+        detail = (result.stderr or "") + "\n" + (result.stdout or "")
+        duration_match = re.search(r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)", detail)
+        if not duration_match:
+            raise RuntimeError("FFmpeg could not read this video's duration or container. Try another file or update FFmpeg.")
+        duration = int(duration_match.group(1)) * 3600 + int(duration_match.group(2)) * 60 + float(duration_match.group(3))
+        video_match = re.search(r"Video:\s*([^,\r\n]+).*?(\d{2,5})x(\d{2,5})", detail, re.S)
+        audio_present = bool(re.search(r"Audio:", detail))
+        if duration <= 0 or not video_match:
+            raise RuntimeError("The selected file does not contain a readable video stream.")
+        size = source.stat().st_size
+        return {
+            "path": str(source), "name": source.name, "size_bytes": size,
+            "size_mb": round(size / 1048576, 2), "duration": duration,
+            "duration_text": fmt_time(duration), "width": int(video_match.group(2)),
+            "height": int(video_match.group(3)), "video_codec": video_match.group(1).strip(),
+            "has_audio": audio_present
+        }
+
+    @staticmethod
+    def _compression_time_seconds(value: str) -> float:
+        match = re.match(r"^(\d+):(\d+):(\d+(?:\.\d+)?)$", str(value).strip())
+        if not match:
+            return 0.0
+        return int(match.group(1)) * 3600 + int(match.group(2)) * 60 + float(match.group(3))
+
+    def start_compression(self, options: dict) -> dict:
+        if not self.ffmpeg:
+            raise RuntimeError("FFmpeg is required for video compression.")
+        source = Path(str(options.get("input_path") or "")).expanduser().resolve()
+        if not source.is_file():
+            raise ValueError("Choose a valid source video.")
+        meta = self.inspect_compression_source(str(source))
+        output = Path(str(options.get("output_path") or "")).expanduser()
+        if not output:
+            raise ValueError("Choose where to save the compressed video.")
+        if output.suffix.lower() != ".mp4":
+            output = output.with_suffix(".mp4")
+        if output.resolve() == source:
+            raise ValueError("The output must be a different file from the source.")
+        output.parent.mkdir(parents=True, exist_ok=True)
+        if output.exists():
+            raise FileExistsError("The output file already exists. Choose a different name or remove it first.")
+
+        codec = str(options.get("codec") or "h264_cpu")
+        caps = self.compression_capabilities()
+        available = set(caps.get("encoders") or [])
+        codec_map = {
+            "h264_cpu": ("libx264", "H.264 CPU"),
+            "h265_cpu": ("libx265", "H.265 CPU"),
+            "h264_nvenc": ("h264_nvenc", "H.264 GPU"),
+            "h265_nvenc": ("hevc_nvenc", "H.265 GPU"),
+            "av1_nvenc": ("av1_nvenc", "AV1 GPU"),
+            "h264_amf": ("h264_amf", "H.264 GPU"),
+            "h265_amf": ("hevc_amf", "H.265 GPU"),
+            "av1_amf": ("av1_amf", "AV1 GPU"),
+            "h264_qsv": ("h264_qsv", "H.264 GPU"),
+            "h265_qsv": ("hevc_qsv", "H.265 GPU"),
+            "av1_qsv": ("av1_qsv", "AV1 GPU"),
+        }
+        if codec not in codec_map:
+            raise ValueError("Choose a supported video encoder.")
+        encoder, codec_label = codec_map[codec]
+        if encoder not in available:
+            raise RuntimeError(f"{codec_label} encoder is not available in the installed FFmpeg build.")
+        method = str(options.get("method") or "quality")
+        if method not in ("percentage", "megabytes", "quality", "resolution", "max_bitrate"):
+            raise ValueError("Choose a valid compression method.")
+        compatibility = bool(options.get("compatibility"))
+        if compatibility and not codec.startswith("h264"):
+            raise ValueError("Older-device compatibility requires an H.264 encoder. Choose H.264 CPU/GPU.")
+        if method in ("percentage", "megabytes") and encoder not in ("libx264", "libx265"):
+            raise ValueError("Target-size two-pass mode currently supports H.264 CPU and H.265 CPU encoders.")
+        if method == "percentage":
+            percent = float(options.get("target_percent", 50))
+            if not math.isfinite(percent) or percent < 1 or percent > 10000:
+                raise ValueError("Target percentage must be between 1% and 10,000%.")
+            target_bytes = int(meta["size_bytes"] * percent / 100)
+        elif method == "megabytes":
+            mb = float(options.get("target_mb", 25))
+            if not math.isfinite(mb) or mb <= 0 or mb > 50000:
+                raise ValueError("Target size must be greater than 0 MB and no more than 50,000 MB.")
+            target_bytes = int(mb * 1048576)
+        else:
+            target_bytes = None
+
+        threads = max(1, min(4, int(options.get("threads", 4))))
+        preset = "veryfast" if encoder == "libx264" else "ultrafast"
+        crf = max(18, min(35, int(options.get("quality", 26))))
+        audio_kbps = max(64, min(192, int(options.get("audio_kbps", 128))))
+        scale_filter = None
+        if method == "resolution":
+            height = int(options.get("resolution", 720))
+            if height not in (2160, 1440, 1080, 720, 480, 360):
+                raise ValueError("Choose a supported target resolution.")
+            scale_filter = f"scale=w='min(iw,{height * 16 // 9})':h='min(ih,{height})':force_original_aspect_ratio=decrease:force_divisible_by=2"
+        elif method in ("percentage", "megabytes", "quality", "max_bitrate"):
+            scale_filter = None
+
+        max_bitrate = None
+        if method == "max_bitrate":
+            max_bitrate = int(float(options.get("max_mbps", 4)) * 1000)
+            if max_bitrate < 100 or max_bitrate > 100000:
+                raise ValueError("Maximum bitrate must be between 0.1 and 100 Mbps.")
+
+        if target_bytes is not None:
+            audio_bits = audio_kbps * 1000 if meta["has_audio"] else 0
+            overhead_factor = 0.985
+            video_bps = int((target_bytes * 8 / meta["duration"] * overhead_factor) - audio_bits)
+            if video_bps < 10000:
+                raise ValueError("The requested target file size is too small for this video's duration and audio settings.")
+            bitrate = f"{video_bps}"
+        else:
+            bitrate = ""
+
+        job_id = uuid.uuid4().hex
+        job = {
+            "id": job_id, "status": "queued", "progress": 0.0,
+            "detail": "Preparing encoder…", "error": "", "input_path": str(source),
+            "output_path": str(output.resolve()), "input_size": meta["size_bytes"],
+            "duration": meta["duration"], "codec": codec, "codec_label": codec_label,
+            "method": method, "target_bytes": target_bytes, "started_at": time.time(),
+            "cancel_requested": False, "output_size": 0, "threads": threads
+        }
+        with self.lock:
+            if self.compression_job and self.compression_job.get("status") in ("queued", "running"):
+                raise RuntimeError("A compression job is already running. Finish or cancel it first.")
+            if self.running or self.frame_process:
+                raise RuntimeError("Finish the current downloader or frame-extraction task before compressing.")
+            self.compression_job = job
+            self.compression_process = None
+        self.log(f"Compression queued · {source.name} · {codec_label} · {method}")
+        self.compression_thread = threading.Thread(
+            target=self._run_compression, args=(dict(job), encoder, preset, crf, audio_kbps,
+                threads, method, bitrate, max_bitrate, scale_filter, compatibility), daemon=True
+        )
+        self.compression_thread.start()
+        return {"ok": True, "id": job_id, "detail": "Compression started.", "input": meta}
+
+    def _run_compression(self, job: dict, encoder: str, preset: str, crf: int,
+                         audio_kbps: int, threads: int, method: str, bitrate: str,
+                         max_bitrate: int | None, scale_filter: str | None,
+                         compatibility: bool) -> None:
+        job_id = job["id"]
+        source = Path(job["input_path"])
+        output = Path(job["output_path"])
+        work_dir = Path(tempfile.mkdtemp(prefix="frex_compress_"))
+        passlog = work_dir / "ffmpeg2pass"
+        stderr_tail = []
+        try:
+            if output.exists():
+                raise FileExistsError("The output file appeared before encoding started.")
+            is_two_pass = method in ("percentage", "megabytes")
+            common = [self.ffmpeg, "-hide_banner", "-y", "-i", str(source),
+                      "-map", "0:v:0", "-map", "0:a?", "-map_metadata", "0", "-map_chapters", "0"]
+            if scale_filter:
+                common += ["-vf", scale_filter]
+            if compatibility:
+                common += ["-pix_fmt", "yuv420p"]
+            common += ["-c:v", encoder, "-preset", preset, "-threads", str(threads)]
+            if encoder == "libx264":
+                common += ["-profile:v", "high"]
+            if encoder == "libx265":
+                common += ["-tag:v", "hvc1"]
+            if is_two_pass:
+                common += ["-b:v", bitrate]
+            elif method == "max_bitrate":
+                common += ["-b:v", str(max_bitrate * 3 // 4),
+                           "-maxrate", str(max_bitrate), "-bufsize", str(max_bitrate * 2)]
+            else:
+                common += ["-crf", str(crf)]
+            if job.get("input_size"):
+                common += ["-metadata", f"comment=Compressed with Frex"]
+            audio_args = ["-c:a", "aac", "-b:a", f"{audio_kbps}k", "-ac", "2"]
+            if compatibility:
+                audio_args += ["-profile:a", "aac_low"]
+            def run_pass(args, pass_number, base_progress):
+                cmd = list(args)
+                if is_two_pass:
+                    cmd += ["-pass", str(pass_number), "-passlogfile", str(passlog)]
+                if pass_number == 1 and is_two_pass:
+                    cmd += ["-an", "-f", "null", "NUL" if os.name == "nt" else "/dev/null"]
+                else:
+                    cmd += audio_args + ["-movflags", "+faststart", "-progress", "pipe:1", "-nostats", str(output)]
+                flags = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
+                proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    text=True, encoding="utf-8", errors="replace", bufsize=1,
+                    creationflags=flags)
+                with self.lock:
+                    self.compression_process = proc
+                    if self.compression_job and self.compression_job.get("id") == job_id:
+                        self.compression_job.update(status="running", detail=("Pass 1 of 2 · analyzing video…" if pass_number == 1 and is_two_pass else "Encoding video…"))
+                def drain_stderr():
+                    for line in iter(proc.stderr.readline, ""):
+                        line = line.strip()
+                        if line:
+                            stderr_tail.append(line[:500])
+                            stderr_tail[:] = stderr_tail[-12:]
+                stderr_thread = threading.Thread(target=drain_stderr, daemon=True)
+                stderr_thread.start()
+                out_time = 0.0
+                for line in proc.stdout:
+                    line = line.strip()
+                    if line.startswith("out_time_ms="):
+                        try:
+                            out_time = int(line.split("=", 1)[1]) / 1_000_000
+                        except ValueError:
+                            pass
+                    elif line == "progress=end":
+                        out_time = job["duration"]
+                    with self.lock:
+                        current = self.compression_job or {}
+                        cancelled = current.get("id") == job_id and current.get("cancel_requested")
+                        if current.get("id") == job_id and not cancelled:
+                            fraction = min(1.0, out_time / max(0.1, job["duration"]))
+                            current["progress"] = (base_progress + fraction * (50 if is_two_pass else 100))
+                            current["detail"] = (f"Pass {pass_number} of 2 · {fraction*100:.0f}%" if is_two_pass else f"Encoding · {fraction*100:.0f}%")
+                    if cancelled:
+                        self._terminate(proc)
+                        break
+                code = proc.wait()
+                stderr_thread.join(timeout=3)
+                with self.lock:
+                    current = self.compression_job or {}
+                    cancelled = current.get("id") == job_id and current.get("cancel_requested")
+                    self.compression_process = None
+                if cancelled:
+                    return False
+                if code != 0:
+                    detail = "\n".join(stderr_tail[-8:]) or f"FFmpeg exited with code {code}."
+                    raise RuntimeError(detail)
+                return True
+
+            if is_two_pass:
+                if not run_pass(common, 1, 0):
+                    return
+                second = list(common)
+                second += ["-pass", "2", "-passlogfile", str(passlog)]
+                second += audio_args + ["-movflags", "+faststart", "-progress", "pipe:1", "-nostats", str(output)]
+                # Pass 2 is run separately so the progress reader remains shared with one output.
+                if not run_pass(common, 2, 50):
+                    return
+            else:
+                if not run_pass(common, 0, 0):
+                    return
+
+            if not output.is_file() or output.stat().st_size <= 0:
+                raise RuntimeError("FFmpeg finished but did not create a valid output file.")
+            out_size = output.stat().st_size
+            ratio = (out_size / max(1, job["input_size"])) * 100
+            with self.lock:
+                current = self.compression_job or {}
+                if current.get("id") == job_id:
+                    current.update(status="complete", progress=100.0, detail="Compression complete.",
+                        output_size=out_size, saved_bytes=max(0, job["input_size"] - out_size),
+                        output_percent=ratio, finished_at=time.time())
+            self.log(f"Compression complete · {source.name} · {out_size / 1048576:.1f} MB ({ratio:.1f}% of source)")
+        except Exception as exc:
+            with self.lock:
+                current = self.compression_job or {}
+                if current.get("id") == job_id:
+                    current.update(status="failed", detail="Compression failed.", error=str(exc)[:1800])
+            self.log(f"Compression failed · {str(exc)[:250]}")
+            try:
+                output.unlink(missing_ok=True)
+            except OSError:
+                pass
+        finally:
+            with self.lock:
+                self.compression_process = None
+                current = self.compression_job or {}
+                cancelled = current.get("id") == job_id and current.get("cancel_requested")
+                if cancelled:
+                    current.update(status="cancelled", detail="Compression cancelled.")
+            if cancelled:
+                try:
+                    output.unlink(missing_ok=True)
+                except OSError:
+                    pass
+            shutil.rmtree(work_dir, ignore_errors=True)
+
+    def compression_state(self) -> dict:
+        with self.lock:
+            return json.loads(json.dumps(self.compression_job)) if self.compression_job else {"status": "idle"}
+
+    def cancel_compression(self) -> None:
+        with self.lock:
+            job = self.compression_job
+            if not job or job.get("status") not in ("queued", "running"):
+                return
+            job["cancel_requested"] = True
+            proc = self.compression_process
+        if proc and proc.poll() is None:
+            self._terminate(proc)
+        self.log("Compression cancellation requested.")
 
     def install_or_update(self) -> dict:
         self.log("Starting yt-dlp install/update using this Python interpreter…")
