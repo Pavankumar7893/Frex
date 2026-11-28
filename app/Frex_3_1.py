@@ -1721,7 +1721,7 @@ class FrexService:
             target_bytes = None
 
         threads = max(1, min(4, int(options.get("threads", 4))))
-        preset = "veryfast" if encoder == "libx264" else "ultrafast"
+        preset = "veryfast" if encoder == "libx264" else ("ultrafast" if encoder == "libx265" else "")
         crf = max(18, min(35, int(options.get("quality", 26))))
         audio_kbps = max(64, min(192, int(options.get("audio_kbps", 128))))
         scale_filter = None
@@ -1797,7 +1797,9 @@ class FrexService:
                 common += ["-vf", scale_filter]
             if compatibility:
                 common += ["-pix_fmt", "yuv420p"]
-            common += ["-c:v", encoder, "-preset", preset, "-threads", str(threads)]
+            common += ["-c:v", encoder, "-threads", str(threads)]
+            if preset:
+                common += ["-preset", preset]
             if encoder == "libx264":
                 common += ["-profile:v", "high"]
             if encoder == "libx265":
@@ -1807,6 +1809,12 @@ class FrexService:
             elif method == "max_bitrate":
                 common += ["-b:v", str(max_bitrate * 3 // 4),
                            "-maxrate", str(max_bitrate), "-bufsize", str(max_bitrate * 2)]
+            elif encoder.endswith("_nvenc"):
+                common += ["-rc", "vbr", "-cq", str(crf), "-b:v", "0"]
+            elif encoder.endswith("_amf"):
+                common += ["-rc", "cqp", "-qp_i", str(crf), "-qp_p", str(crf)]
+            elif encoder.endswith("_qsv"):
+                common += ["-global_quality", str(crf)]
             else:
                 common += ["-crf", str(crf)]
             if job.get("input_size"):
