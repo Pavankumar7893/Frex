@@ -82,7 +82,7 @@ These dependencies are installed on the user's machine by the installer or via `
 
 ## Project status
 
-The README and changelog describe the planned 3.3.0 feature set. **The current `main` branch does not yet contain the matching 3.3.0 application code or installer ZIP**; the `app/` and `release/` files remain an earlier build. Do not treat the repository as a 3.3.0 release until those assets are replaced. The Android Studio project and Android release are not included in this repository version.
+The `main` branch now contains the Frex 3.3.0 application source, including the local Video Size Studio compressor and source-validation workflow. The prebuilt Windows installer ZIP has not yet been regenerated for this source revision; to use these changes now, replace both files in `app/` with the latest versions from the repository and launch `Frex_3_1.py`. The Android Studio project and Android release are not included in this repository version.
 
 ## License
 
