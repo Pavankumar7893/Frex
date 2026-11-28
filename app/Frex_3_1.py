@@ -724,8 +724,8 @@ class FrexService:
                 if ext == "png":
                     png_signature = b"\x89PNG\r\n\x1a\n"
                     while True:
-                        signature = proc.stdout.read(8)
-                        if not signature:
+                        signature = read_exact(proc.stdout, 8)
+                        if signature is None:
                             break
                         if signature != png_signature:
                             raise RuntimeError("FFmpeg returned an invalid PNG image stream.")
@@ -822,6 +822,17 @@ class FrexService:
             stderr_thread.join(timeout=2)
             with self.lock:
                 self.frame_process = None
+                current_session = self.frame_sessions.get(session_id, {})
+                current_export = current_session.get("export") or {}
+                cancelled = bool(
+                    current_export.get("id") == job["export_id"]
+                    and current_export.get("cancel_requested")
+                )
+                if cancelled:
+                    current_export.update(status="cancelled", detail="Frame export cancelled.")
+            if cancelled:
+                zip_path.unlink(missing_ok=True)
+                return 0
             raise
 
     def _run_frame_export(self, job: dict) -> None:
