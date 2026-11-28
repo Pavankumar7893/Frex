@@ -1801,7 +1801,7 @@ class FrexService:
             if preset:
                 common += ["-preset", preset]
             if encoder == "libx264":
-                common += ["-profile:v", "high"]
+                common += ["-profile:v", "baseline" if compatibility else "high"]
             if encoder == "libx265":
                 common += ["-tag:v", "hvc1"]
             if is_two_pass:
